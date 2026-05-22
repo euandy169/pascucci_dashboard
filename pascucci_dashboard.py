@@ -1,7 +1,7 @@
 """
-커피 시장 소비자 인식 심층 분석 대시보드
-파스쿠찌 데이터 마케팅 전략 관점
-데이터: 82Cook 커뮤니티 VoC (2024.10 ~ 2026.05, 463건)
+Coffee Market Insight Dashboard
+for PASCUCCI Division
+Data: 커뮤니티/소셜 VoC (2024.10 ~ 2026.05)
 
 실행 방법:
   pip install streamlit plotly pandas numpy scikit-learn scipy
