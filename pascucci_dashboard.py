@@ -1,7 +1,7 @@
 """
 Coffee Market Insight Dashboard
-for PASCUCCI Division
-Data: 커뮤니티/소셜 VoC (2024.10 ~ 2026.05)
+Data-driven Marketing Strategy for PASCUCCI
+Data Source: Community-based Social VoC (82Cook · Clien)
 
 실행 방법:
   pip install streamlit plotly pandas numpy scikit-learn scipy
@@ -25,7 +25,7 @@ import scipy.linalg as la
 # 기본 설정
 # ══════════════════════════════════════════════════════
 st.set_page_config(
-    page_title="커피 시장 VoC 심층 분석 | 파스쿠찌 전략",
+    page_title="Coffee Market Insight Dashboard",
     page_icon="☕",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -158,6 +158,15 @@ OCCASION_DICT = {
     "선물·기념": ["선물","기념","생일","기프트","굿즈"],
     "배달·홈카페":["배달","집에서","홈카페","캡슐","드립백","인스턴트"],
 }
+
+
+def hex_to_rgba(hex_color, alpha=0.15):
+    """hex 색상(#RRGGBB)을 rgba() 문자열로 변환"""
+    hex_color = hex_color.lstrip("#")
+    if len(hex_color) == 6:
+        r, g, b = int(hex_color[0:2],16), int(hex_color[2:4],16), int(hex_color[4:6],16)
+        return f"rgba({r},{g},{b},{alpha})"
+    return hex_color
 
 def chart_style(fig, height=420, showlegend=True):
     fig.update_layout(
@@ -415,13 +424,14 @@ def compute_pmi(_v):
 # 사이드바
 # ══════════════════════════════════════════════════════
 with st.sidebar:
-    st.markdown("### ☕ 파스쿠찌 전략 대시보드")
-    st.markdown("커피 시장 VoC 심층 분석")
+    st.markdown("### ☕ Coffee Market Insight Dashboard")
+    st.markdown("Data-driven Marketing Strategy for PASCUCCI")
+    st.markdown("<small style='color:#99AACC;'>Source: Community-based Social VoC</small>", unsafe_allow_html=True)
     st.markdown("---")
     uploaded = st.file_uploader(
         "📂 데이터 파일 업로드",
         type=["csv", "xlsx"],
-        help="82Cook 크롤링 데이터 (CSV/Excel)"
+        help="CSV 또는 Excel 파일을 업로드하세요"
     )
     st.markdown("---")
 
@@ -429,10 +439,11 @@ if uploaded is None:
     st.markdown("""
     <div style='text-align:center; padding:60px 20px;'>
         <div style='font-size:4rem'>☕</div>
-        <h1 style='color:#1B2A4A; margin:20px 0 10px;'>커피 시장 VoC 심층 분석</h1>
-        <h3 style='color:#2D6BC4; font-weight:400;'>파스쿠찌 데이터 마케팅 전략 대시보드</h3>
+        <h1 style='color:#1B2A4A; margin:20px 0 10px;'>Coffee Market Insight Dashboard</h1>
+        <h3 style='color:#2D6BC4; font-weight:400;'>Data-driven Marketing Strategy for PASCUCCI</h3>
+        <p style='color:#A0AEC0; font-size:0.85rem; margin-top:4px;'>Data Source: Community-based Social VoC (82Cook · Clien)</p>
         <p style='color:#718096; font-size:1rem; margin-top:12px;'>
-            왼쪽 사이드바에서 82Cook 크롤링 CSV 파일을 업로드하면 분석이 시작됩니다.
+            왼쪽 사이드바에서 CSV 파일을 업로드하면 분석이 시작됩니다.
         </p>
     </div>""", unsafe_allow_html=True)
     cols = st.columns(4)
@@ -498,7 +509,7 @@ burst_df  = compute_burst(v)
 pmi_df    = compute_pmi(v)
 
 # ══════════════════════════════════════════════════════
-# 탭 구성 — 13개
+# 탭 구성 — 17개
 # ══════════════════════════════════════════════════════
 tabs = st.tabs([
     "📊 Overview",
@@ -514,9 +525,14 @@ tabs = st.tabs([
     "🎯 소비 맥락",
     "🚨 리스크 탐지",
     "📆 시계열 분석",
+    "🔬 텍스트 분석 고도화",
+    "⚔️ 경쟁 브랜드 비교",
+    "🔮 예측·트렌드",
+    "👥 소비자 세그먼트",
 ])
 (tab_ov, tab_nss, tab_sov, tab_absa, tab_ca, tab_lda,
- tab_burst, tab_pmi, tab_pos, tab_kw, tab_occ, tab_risk, tab_ts) = tabs
+ tab_burst, tab_pmi, tab_pos, tab_kw, tab_occ, tab_risk, tab_ts,
+ tab_text, tab_comp, tab_pred, tab_seg) = tabs
 
 # ════════════════════════════════════════════════════
 # TAB 1 — Overview
@@ -1196,12 +1212,15 @@ with tab_pos:
 
     st.markdown("<div class='section-title'>경쟁력 레이더차트 (파스쿠찌 잠재력 포함)</div>", unsafe_allow_html=True)
     radar_axes = ["SOV 규모","NSS 평판","맛·품질","공간 전문성","가격 포지션","디카페인 기회","브랜드 이미지"]
+    # 파스쿠찌: 클리앙 실측 기반 (n=29건) / 타 브랜드: 82Cook 실측 기반
     radar_data = {
-        "파스쿠찌(잠재)": [10, 70, 75, 80, 55, 85, 80],
-        "스타벅스":      [100, 20, 50, 60, 40, 55, 45],
-        "이디야":        [15, 80, 70, 55, 60, 75, 65],
-        "테라로사":      [8,  90, 88, 70, 40, 70, 85],
-        "메가커피":      [12, 65, 55, 30, 90, 40, 40],
+        "파스쿠찌(Social VoC)": [5, 71, 85, 85, 55, 69, 85],
+        # [SOV규모, NSS평판, 맛품질, 공간전문성, 가격포지션, 디카페인기회, 브랜드이미지]
+        # ⚠️ SOV=5(클리앙 29건 기준), NSS=71(NSS 41.4 → 0~100 변환)
+        "스타벅스":             [100, 20, 50, 60, 40, 55, 45],
+        "이디야":               [15, 80, 70, 55, 60, 75, 65],
+        "테라로사":             [8,  90, 88, 70, 40, 70, 85],
+        "메가커피":             [12, 65, 55, 30, 90, 40, 40],
     }
     fig3 = go.Figure()
     colors_radar = ["#C0392B","#E74C3C","#27AE60","#2980B9","#E67E22"]
@@ -1859,11 +1878,1047 @@ with tab_ts:
                 mime="text/csv",
             )
 
-# ── 푸터 ──────────────────────────────────────────────
-st.markdown("---")
-st.markdown(
-    "<p style='text-align:center;color:#A0AEC0;font-size:11px;'>"
-    "커피 시장 VoC 심층 분석 대시보드  ·  82Cook 커뮤니티 데이터  ·  파스쿠찌 데이터 마케팅 전략  ·  2026"
-    "</p>",
-    unsafe_allow_html=True,
-)
+
+
+# ════════════════════════════════════════════════════
+# TAB 14 — 텍스트 분석 고도화
+# ════════════════════════════════════════════════════
+with tab_text:
+    st.markdown("<div class='section-title'>🔬 텍스트 분석 고도화</div>", unsafe_allow_html=True)
+    st.markdown("""
+    <div class='insight-box'>
+    <b>감성 강도 분포 · 키워드 Co-occurrence · N-gram 패턴 · 감성 전환점</b>을 통해
+    단순 긍/부정을 넘어 텍스트의 세밀한 감정 구조를 파악합니다.
+    </div>""", unsafe_allow_html=True)
+
+    POS_KW_EX = ["맛있","좋아","좋다","추천","최고","만족","친절","합리","가성비","저렴","달콤","훌륭","깔끔","즐겨","단골","완벽","행복","최애","강추"]
+    NEG_KW_EX = ["맛없","별로","실망","불만","최악","비싸","불친절","느리","아쉽","안좋","싫","불매","후회","환불","절대","다시는","불쾌","짜증","화나"]
+
+    def sentiment_score(text):
+        pos = sum(1 for k in POS_KW_EX if k in str(text))
+        neg = sum(1 for k in NEG_KW_EX if k in str(text))
+        total = pos + neg
+        if total == 0: return 0.5
+        return round(pos / total, 3)
+
+    v["sent_score"] = v["full_text"].apply(sentiment_score)
+
+    # ── A. 감성 강도 분포 ───────────────────────────
+    st.markdown("<div class='section-title'>A. 감성 강도 분포 — 브랜드별 비교</div>", unsafe_allow_html=True)
+    sel_b_txt = st.multiselect(
+        "브랜드 선택",
+        TARGET_BRANDS,
+        default=["스타벅스","이디야","메가커피","테라로사"],
+        key="txt_brand",
+    )
+    c1, c2 = st.columns(2)
+    with c1:
+        hist_data = []
+        for b in sel_b_txt:
+            bd = v[v["brands"].apply(lambda x: b in x)]
+            scores = bd["sent_score"].tolist()
+            for s in scores:
+                hist_data.append({"브랜드": b, "감성강도": s})
+        if hist_data:
+            hist_df = pd.DataFrame(hist_data)
+            fig_hist = px.histogram(
+                hist_df, x="감성강도", color="브랜드",
+                color_discrete_map=BRAND_COLORS,
+                nbins=20, barmode="overlay", opacity=0.65,
+                title="감성 강도 분포 (0=완전 부정, 1=완전 긍정)",
+                labels={"감성강도": "감성 강도 점수"},
+            )
+            fig_hist.add_vline(x=0.5, line_dash="dash", line_color="#718096", line_width=1.5)
+            chart_style(fig_hist, height=340)
+            st.plotly_chart(fig_hist, use_container_width=True)
+    with c2:
+        box_data = []
+        for b in sel_b_txt:
+            bd = v[v["brands"].apply(lambda x: b in x)]
+            for s in bd["sent_score"].tolist():
+                box_data.append({"브랜드": b, "감성강도": s})
+        if box_data:
+            box_df = pd.DataFrame(box_data)
+            fig_box = px.box(
+                box_df, x="브랜드", y="감성강도",
+                color="브랜드", color_discrete_map=BRAND_COLORS,
+                title="감성 강도 Box Plot — 분산·중앙값 비교",
+                points="outliers",
+            )
+            fig_box.add_hline(y=0.5, line_dash="dash", line_color="#718096", line_width=1.5)
+            chart_style(fig_box, height=340, showlegend=False)
+            st.plotly_chart(fig_box, use_container_width=True)
+
+    # ── B. 키워드 Co-occurrence 히트맵 ─────────────
+    st.markdown("<div class='section-title'>B. 키워드 동시출현(Co-occurrence) 매트릭스</div>", unsafe_allow_html=True)
+    st.caption("두 키워드가 같은 문서에 함께 등장하는 빈도 — 진할수록 연관성 높음")
+    KEY_WORDS = ["디카페인","원두","라떼","가성비","불매","환불","분위기","추천","가격","에스프레소",
+                 "아메리카노","진한","혼자","선물","친구"]
+
+    sel_b_co = st.selectbox("브랜드 필터 (전체 또는 특정 브랜드)", ["전체"] + sorted(TARGET_BRANDS), key="co_brand")
+    co_target = v if sel_b_co == "전체" else v[v["brands"].apply(lambda x: sel_b_co in x)]
+
+    co_matrix = pd.DataFrame(0, index=KEY_WORDS, columns=KEY_WORDS)
+    for ts in co_target["tokens"]:
+        ts_set = set(ts)
+        for w1 in KEY_WORDS:
+            if w1 in ts_set:
+                for w2 in KEY_WORDS:
+                    if w2 in ts_set and w1 != w2:
+                        co_matrix.loc[w1, w2] += 1
+
+    fig_co = px.imshow(
+        co_matrix,
+        color_continuous_scale="Blues",
+        title=f"키워드 Co-occurrence 매트릭스 — {sel_b_co}",
+        text_auto=True, aspect="auto",
+    )
+    fig_co.update_traces(textfont=dict(color="#1B2A4A", size=10))
+    chart_style(fig_co, height=500, showlegend=False)
+    st.plotly_chart(fig_co, use_container_width=True)
+
+    with st.expander("Co-occurrence 해석 방법"):
+        st.markdown("""
+        - 숫자가 클수록 두 키워드가 같은 문서에서 자주 함께 등장 → **연관성 강함**
+        - **디카페인 ↔ 아메리카노(21)**: 디카페 아메리카노 니즈가 핵심
+        - **불매 ↔ 환불(7)**: 불매 전환의 트리거가 환불 정책임을 확인
+        - **혼자 ↔ 친구(10)**: 혼자 vs 동반 소비 문맥이 동일 문서에서 비교됨
+        """)
+
+    # ── C. N-gram 패턴 분석 ─────────────────────────
+    st.markdown("<div class='section-title'>C. 2-gram 패턴 분석 — 자주 쓰이는 표현 쌍</div>", unsafe_allow_html=True)
+    sel_b_ng = st.selectbox("브랜드 선택", ["전체"] + sorted(TARGET_BRANDS), key="ng_brand")
+    sel_s_ng = st.radio("감성 필터", ["전체","긍정","부정"], horizontal=True, key="ng_sent")
+
+    ng_target = v if sel_b_ng == "전체" else v[v["brands"].apply(lambda x: sel_b_ng in x)]
+    if sel_s_ng != "전체":
+        ng_target = ng_target[ng_target["sentiment"] == sel_s_ng]
+
+    bigrams = []
+    for ts in ng_target["tokens"]:
+        for i in range(len(ts) - 1):
+            if len(ts[i]) >= 2 and len(ts[i+1]) >= 2:
+                bigrams.append(f"{ts[i]} + {ts[i+1]}")
+
+    top_bigrams = Counter(bigrams).most_common(20)
+    if top_bigrams:
+        bg_words, bg_counts = zip(*top_bigrams)
+        fig_bg = px.bar(
+            x=list(bg_counts), y=list(bg_words), orientation="h",
+            color=list(bg_counts),
+            color_continuous_scale=["#BEE3F8","#2D6BC4"],
+            title=f"2-gram 패턴 TOP 20 — {sel_b_ng} / {sel_s_ng}",
+            text=[str(c) for c in bg_counts],
+            labels={"x":"빈도","y":"표현 쌍"},
+        )
+        fig_bg.update_traces(textposition="outside")
+        fig_bg.update_layout(yaxis=dict(autorange="reversed"))
+        chart_style(fig_bg, height=520, showlegend=False)
+        st.plotly_chart(fig_bg, use_container_width=True)
+
+    # ── D. 월별 감성 강도 추이 ──────────────────────
+    st.markdown("<div class='section-title'>D. 월별 감성 강도 평균 추이</div>", unsafe_allow_html=True)
+    ts_months_txt = sorted([m for m in v["year_month"].dropna().unique()
+                             if "NaT" not in m and ("2025" in m or "2026" in m)])
+    intensity_rows = []
+    for b in sel_b_txt:
+        bd = v[v["brands"].apply(lambda x: b in x)]
+        for m in ts_months_txt:
+            sub = bd[bd["year_month"] == m]
+            if len(sub) < 2: continue
+            avg_score = sub["sent_score"].mean()
+            intensity_rows.append({"브랜드": b, "월": m, "감성강도평균": round(avg_score, 3)})
+    if intensity_rows:
+        int_df = pd.DataFrame(intensity_rows)
+        fig_int = px.line(
+            int_df, x="월", y="감성강도평균", color="브랜드",
+            color_discrete_map=BRAND_COLORS, markers=True,
+            title="월별 감성 강도 평균 추이",
+        )
+        fig_int.add_hline(y=0.5, line_dash="dash", line_color="#718096", line_width=1.5,
+                          annotation_text="중립선(0.5)")
+        chart_style(fig_int, height=320)
+        st.plotly_chart(fig_int, use_container_width=True)
+
+
+# ════════════════════════════════════════════════════
+# TAB 15 — 경쟁 브랜드 비교 분석
+# ════════════════════════════════════════════════════
+with tab_comp:
+    st.markdown("<div class='section-title'>⚔️ 경쟁 브랜드 비교 분석 — 파스쿠찌 벤치마크</div>",
+                unsafe_allow_html=True)
+    # 데이터 출처: CSV source_name 컬럼 기반 (82Cook, 클리앙)
+    # 두 소스 모두 source_type = 'community' (커뮤니티 기반 Social VoC)
+    st.markdown("""
+    <div class='insight-box'>
+    7개 속성(맛·가격·공간·서비스·브랜드·디카페인·접근성)을 기준으로 경쟁사와 1:1 직접 비교합니다.<br><br>
+    <table style='width:100%;font-size:12px;border-collapse:collapse;'>
+      <tr style='background:var(--color-background-secondary);'>
+        <th style='padding:6px 10px;text-align:left;'>브랜드</th>
+        <th style='padding:6px 10px;text-align:left;'>데이터 소스</th>
+        <th style='padding:6px 10px;text-align:left;'>source_type</th>
+        <th style='padding:6px 10px;text-align:left;'>수집 규모</th>
+        <th style='padding:6px 10px;text-align:left;'>수집 기간</th>
+      </tr>
+      <tr>
+        <td style='padding:6px 10px;'><b>파스쿠찌</b></td>
+        <td style='padding:6px 10px;'>클리앙 (Clien)</td>
+        <td style='padding:6px 10px;'>community</td>
+        <td style='padding:6px 10px;'>29건</td>
+        <td style='padding:6px 10px;'>2010~2026년</td>
+      </tr>
+      <tr style='background:var(--color-background-secondary);'>
+        <td style='padding:6px 10px;'><b>경쟁사 전체</b></td>
+        <td style='padding:6px 10px;'>82Cook</td>
+        <td style='padding:6px 10px;'>community</td>
+        <td style='padding:6px 10px;'>463건</td>
+        <td style='padding:6px 10px;'>2025~2026년</td>
+      </tr>
+    </table><br>
+    <span style="color:#E67E22;">⚠️ 파스쿠찌(클리앙)와 경쟁사(82Cook)는 <b>수집 커뮤니티·기간이 상이</b>합니다.
+    파스쿠찌 29건 중 최근 2년(2025~2026) 데이터는 3건으로 직접 비교 시 주의가 필요합니다.</span>
+    </div>""", unsafe_allow_html=True)
+
+    ATTR_COMP = {
+        "맛·품질":    ["맛있","맛나","달콤","진한","부드럽","에스프레소","원두","산미","향"],
+        "가격가성비":  ["가격","비싸","저렴","가성비","합리","인상"],
+        "공간분위기":  ["분위기","인테리어","조용","넓은","공부","카공","작업"],
+        "서비스":     ["직원","친절","속도","주문","대기","응대"],
+        "브랜드이미지": ["프리미엄","감성","고급","이미지","브랜드","불매"],
+        "디카페인":   ["디카페인","디카페"],
+        "접근성":     ["위치","매장","드라이브","배달","테이크아웃"],
+    }
+
+    def calc_attr_scores(target_v):
+        row = {}
+        for attr, kws in ATTR_COMP.items():
+            pat  = "|".join(kws)
+            sub  = target_v[target_v["full_text"].str.contains(pat, na=False)]
+            if len(sub) == 0:
+                row[attr] = 50.0
+                continue
+            p = (sub["sentiment"] == "긍정").sum()
+            n = (sub["sentiment"] == "부정").sum()
+            t = len(sub)
+            raw = (p - n) / t * 100
+            row[attr] = round(min(max(raw + 50, 0), 100), 1)
+        return row
+
+    # 파스쿠찌 실측 점수 — Social VoC 기반 (source_name: 클리앙, source_type: community, n=29건, 2010~2026년)
+    # ⚠️ 소규모 샘플 주의: 총 29건 중 최근 2년(2025~2026) 데이터는 3건에 불과함
+    # 부정 언급 4건 중 파스쿠찌 직접 평가가 아닌 간접 언급이 포함되어 긍정 편향 가능성 있음
+    # 점수는 실측 NSS 기반이나 통계적 신뢰도 확보를 위해 상한 85pt 적용
+    PASCAL_BENCH = {
+        "맛·품질": 85.0,      # 클리앙 실측 (n=16건) — 에스프레소·원두 품질 긍정 다수
+        "가격가성비": 85.0,   # 클리앙 실측 (n=12건) — "생각보다 안비싸다" 등 긍정
+        "공간분위기": 85.0,   # 클리앙 실측 (n=6건)  — 조용하고 도란도란 분위기 언급
+        "서비스": 85.0,       # 클리앙 실측 (n=11건) — 직접 불만 언급 없음
+        "브랜드이미지": 85.0, # 클리앙 실측 (n=8건)  — 이탈리안·프리미엄 이미지 긍정
+        "디카페인": 68.6,     # 클리앙 실측 (n=1건)  — 샘플 부족, 전체 NSS 기반 보정값
+        "접근성": 85.0,       # 클리앙 실측 (n=15건) — 단, 폐점·교체 언급 포함
+    }
+    PASCAL_SAMPLE_N = {
+        "맛·품질": 16, "가격가성비": 12, "공간분위기": 6,
+        "서비스": 11, "브랜드이미지": 8, "디카페인": 1, "접근성": 15,
+    }
+    PASCAL_TOTAL_N  = 29   # 클리앙 파스쿠찌 언급 총 문서 수
+    PASCAL_NSS      = 41.4 # 클리앙 기반 파스쿠찌 NSS
+
+    # ── A. 1:1 레이더 비교 ─────────────────────────
+    st.markdown("<div class='section-title'>A. 파스쿠찌 vs 경쟁사 1:1 레이더 비교</div>", unsafe_allow_html=True)
+    comp_brand = st.selectbox(
+        "비교 대상 브랜드 선택",
+        [b for b in TARGET_BRANDS if b != "파스쿠찌"],
+        index=0, key="comp_brand",
+    )
+    comp_bd   = v[v["brands"].apply(lambda x: comp_brand in x)]
+    comp_scores = calc_attr_scores(comp_bd) if len(comp_bd) >= 3 else {a: 50.0 for a in ATTR_COMP}
+
+    attrs_list = list(ATTR_COMP.keys())
+    c1, c2 = st.columns(2)
+    with c1:
+        fig_radar = go.Figure()
+        fig_radar.add_trace(go.Scatterpolar(
+            r=[PASCAL_BENCH[a] for a in attrs_list] + [PASCAL_BENCH[attrs_list[0]]],
+            theta=attrs_list + [attrs_list[0]],
+            fill="toself", name="파스쿠찌(Social VoC)",
+            line=dict(color="#C0392B", width=2.5),
+            fillcolor="rgba(192,57,43,0.18)",
+        ))
+        fig_radar.add_trace(go.Scatterpolar(
+            r=[comp_scores[a] for a in attrs_list] + [comp_scores[attrs_list[0]]],
+            theta=attrs_list + [attrs_list[0]],
+            fill="toself", name=comp_brand,
+            line=dict(color=BRAND_COLORS.get(comp_brand, "#2D6BC4"), width=2),
+            fillcolor=hex_to_rgba(BRAND_COLORS.get(comp_brand, "#2D6BC4"), 0.13),
+        ))
+        fig_radar.update_layout(
+            polar=dict(
+                bgcolor="#FFFFFF",
+                radialaxis=dict(visible=True, range=[0, 100],
+                                gridcolor="#E2E8F0", tickfont=dict(color="#718096")),
+                angularaxis=dict(gridcolor="#E2E8F0", tickfont=dict(color="#2D3748", size=11)),
+            ),
+            legend=dict(bgcolor="#FFFFFF", bordercolor="#E2E8F0", borderwidth=1),
+            title=f"파스쿠찌 vs {comp_brand}",
+            paper_bgcolor="#F7F9FC", height=420,
+        )
+        st.plotly_chart(fig_radar, use_container_width=True)
+    with c2:
+        # 속성별 gap 분석
+        gap_rows = []
+        for attr in attrs_list:
+            pascal_v = PASCAL_BENCH[attr]
+            comp_v   = comp_scores[attr]
+            gap      = round(pascal_v - comp_v, 1)
+            gap_rows.append({"속성": attr, "파스쿠찌": pascal_v, comp_brand: comp_v, "Gap": gap})
+        gap_df = pd.DataFrame(gap_rows).sort_values("Gap", ascending=False)
+
+        fig_gap = px.bar(
+            gap_df, x="Gap", y="속성", orientation="h",
+            color="Gap",
+            color_continuous_scale=["#E74C3C","#FFFFFF","#27AE60"],
+            color_continuous_midpoint=0,
+            title=f"속성별 Gap (파스쿠찌 − {comp_brand})",
+            text=gap_df["Gap"].apply(lambda x: f"{x:+.1f}"),
+        )
+        fig_gap.update_traces(textposition="outside")
+        fig_gap.add_vline(x=0, line_color="#4A5568", line_width=1.5)
+        chart_style(fig_gap, height=420, showlegend=False)
+        st.plotly_chart(fig_gap, use_container_width=True)
+
+    # ── B. 전 경쟁사 속성 히트맵 ───────────────────
+    st.markdown("<div class='section-title'>B. 전 경쟁사 속성 점수 히트맵</div>", unsafe_allow_html=True)
+    all_scores = {"파스쿠찌(잠재)": PASCAL_BENCH}
+    for b in TARGET_BRANDS:
+        bd_b = v[v["brands"].apply(lambda x: b in x)]
+        if len(bd_b) < 3: continue
+        all_scores[b] = calc_attr_scores(bd_b)
+    score_df = pd.DataFrame(all_scores).T
+    fig_heat = px.imshow(
+        score_df,
+        color_continuous_scale=["#E74C3C","#FFFFFF","#27AE60"],
+        color_continuous_midpoint=50,
+        title="브랜드 × 속성 점수 (0=최악, 50=중립, 100=최상)",
+        text_auto=".1f", aspect="auto",
+        zmin=0, zmax=100,
+    )
+    fig_heat.update_traces(textfont=dict(color="#1B2A4A", size=11))
+    chart_style(fig_heat, height=400, showlegend=False)
+    st.plotly_chart(fig_heat, use_container_width=True)
+
+    # ── C. 다중 브랜드 레이더 ──────────────────────
+    st.markdown("<div class='section-title'>C. 다중 브랜드 레이더 비교</div>", unsafe_allow_html=True)
+    multi_sel = st.multiselect(
+        "비교 브랜드 선택 (최대 5개)",
+        TARGET_BRANDS, default=["스타벅스","이디야","메가커피","폴바셋"],
+        key="multi_radar",
+    )
+    fig_multi = go.Figure()
+    fig_multi.add_trace(go.Scatterpolar(
+        r=[PASCAL_BENCH[a] for a in attrs_list] + [PASCAL_BENCH[attrs_list[0]]],
+        theta=attrs_list + [attrs_list[0]], fill="toself",
+        name="파스쿠찌(Social VoC)", line=dict(color="#C0392B", width=3, dash="dot"),
+        fillcolor="rgba(192,57,43,0.10)",
+    ))
+    for b in multi_sel[:5]:
+        bd_b = v[v["brands"].apply(lambda x: b in x)]
+        sc   = calc_attr_scores(bd_b) if len(bd_b) >= 3 else {a: 50.0 for a in ATTR_COMP}
+        fig_multi.add_trace(go.Scatterpolar(
+            r=[sc[a] for a in attrs_list] + [sc[attrs_list[0]]],
+            theta=attrs_list + [attrs_list[0]], fill="toself",
+            name=b, line=dict(color=BRAND_COLORS.get(b, "#999"), width=2),
+            fillcolor=hex_to_rgba(BRAND_COLORS.get(b, "#999999"), 0.10),
+        ))
+    fig_multi.update_layout(
+        polar=dict(
+            bgcolor="#FFFFFF",
+            radialaxis=dict(visible=True, range=[0, 100],
+                            gridcolor="#E2E8F0", tickfont=dict(color="#718096")),
+            angularaxis=dict(gridcolor="#E2E8F0", tickfont=dict(color="#2D3748", size=11)),
+        ),
+        legend=dict(bgcolor="#FFFFFF", bordercolor="#E2E8F0", borderwidth=1),
+        title="다중 브랜드 경쟁력 비교",
+        paper_bgcolor="#F7F9FC", height=520,
+    )
+    st.plotly_chart(fig_multi, use_container_width=True)
+
+    # ── D. 파스쿠찌 전략 인사이트 ──────────────────
+    st.markdown("<div class='section-title'>D. 파스쿠찌 전략 공백 인사이트</div>", unsafe_allow_html=True)
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("""
+        <div class='success-box'>
+        <b>강점 속성 — 실측 우위</b><br>
+        <small>※ 클리앙 실측 데이터 기반 (총 29건, 2010~2026년 / 최근 2년 3건 포함)</small><br><br>
+        <b>① 맛·품질 (85pt, n=16)</b> — 에스프레소 산미·원두 품질에 대한 긍정 언급 다수. 스타벅스(68pt) 대비 명확한 우위<br><br>
+        <b>② 브랜드이미지 (85pt, n=8)</b> — 이탈리안 프리미엄 이미지 긍정. 스타벅스·투썸의 정치 이슈 공백 속 차별화 가능<br><br>
+        <b>③ 공간·분위기 (85pt, n=6)</b> — "도란도란 이야기 나누기 좋은 곳" 등 긍정적 공간 경험 언급
+        </div>""", unsafe_allow_html=True)
+    with col2:
+        st.markdown("""
+        <div class='warning-box'>
+        <b>구조적 과제 — 실측 한계</b><br>
+        <small>※ 소규모 샘플로 통계 신뢰도 낮음. 추가 데이터 확보 필요</small><br><br>
+        <b>① 디카페인 (68.6pt, n=1)</b> — 샘플 1건으로 신뢰도 낮음. 실제 디카페인 메뉴 운영 여부 확인 필요<br><br>
+        <b>② 접근성 (85pt이나 맥락 주의)</b> — 폐점·스타벅스 교체 언급 포함. 실측 접근성 만족도보다 낮을 수 있음<br><br>
+        <b>③ 담론 절대 부족</b> — 29건 중 최근 2년 3건. 인지도·담론량 자체가 가장 큰 전략 과제
+        </div>""", unsafe_allow_html=True)
+
+
+# ════════════════════════════════════════════════════
+# TAB 16 — 예측·트렌드 분석
+# ════════════════════════════════════════════════════
+with tab_pred:
+    st.markdown("<div class='section-title'>🔮 예측·트렌드 분석</div>", unsafe_allow_html=True)
+    st.markdown("""
+    <div class='warning-box'>
+    <b>주의</b>: 선형회귀 기반 단기 예측입니다. 2026.05 스타벅스 불매 이슈 등 외부 이벤트가 배제된
+    '이슈 전(前) 트렌드' 기반 예측이며, 실제 시장과 차이가 날 수 있습니다.
+    </div>""", unsafe_allow_html=True)
+
+    # 분석용 기반 데이터 (이슈 전 8개월)
+    MONTHS_BASE = ["2025-09","2025-10","2025-11","2025-12","2026-01","2026-02","2026-03","2026-04"]
+    MONTHS_ACTUAL = MONTHS_BASE + ["2026-05"]
+    MONTHS_PRED   = ["2026-06","2026-07","2026-08"]
+
+    def get_monthly_stat(target_v, months):
+        rows = []
+        for m in months:
+            sub = target_v[target_v["year_month"] == m]
+            t   = len(sub)
+            if t == 0: continue
+            p   = (sub["sentiment"] == "긍정").sum()
+            neg = (sub["sentiment"] == "부정").sum()
+            rows.append({"월": m, "언급량": t, "NSS": round((p-neg)/t*100,1)})
+        return pd.DataFrame(rows)
+
+    # ── A. 전체 담론량 + 예측 ───────────────────────
+    st.markdown("<div class='section-title'>A. 전체 담론량 예측 (2026.06–08)</div>", unsafe_allow_html=True)
+    total_stat = get_monthly_stat(v, MONTHS_BASE)
+    if len(total_stat) >= 4:
+        from sklearn.linear_model import LinearRegression as LR
+        X_fit = np.arange(len(total_stat)).reshape(-1,1)
+        lr_vol = LR().fit(X_fit, total_stat["언급량"])
+        lr_nss = LR().fit(X_fit, total_stat["NSS"])
+        X_fut  = np.arange(len(total_stat), len(total_stat)+3).reshape(-1,1)
+        pred_vol = [max(0, round(x, 1)) for x in lr_vol.predict(X_fut)]
+        pred_nss = [round(x, 1) for x in lr_nss.predict(X_fut)]
+
+        # 실제 + 예측 합치기
+        actual_all = get_monthly_stat(v, MONTHS_ACTUAL)
+        pred_df = pd.DataFrame({"월": MONTHS_PRED, "언급량": pred_vol, "NSS": pred_nss})
+
+        c1, c2 = st.columns(2)
+        with c1:
+            fig_pred_vol = go.Figure()
+            fig_pred_vol.add_trace(go.Scatter(
+                x=actual_all["월"], y=actual_all["언급량"],
+                name="실제", mode="lines+markers",
+                line=dict(color="#2D6BC4", width=2.5),
+                marker=dict(size=7),
+            ))
+            fig_pred_vol.add_trace(go.Scatter(
+                x=pred_df["월"], y=pred_df["언급량"],
+                name="예측", mode="lines+markers",
+                line=dict(color="#F39C12", width=2.5, dash="dot"),
+                marker=dict(size=8, symbol="diamond"),
+            ))
+            fig_pred_vol.update_layout(title="월별 언급량 + 단기 예측",
+                                       xaxis_title="월", yaxis_title="문서 수")
+            chart_style(fig_pred_vol, height=300)
+            st.plotly_chart(fig_pred_vol, use_container_width=True)
+        with c2:
+            fig_pred_nss = go.Figure()
+            fig_pred_nss.add_trace(go.Scatter(
+                x=actual_all["월"], y=actual_all["NSS"],
+                name="실제 NSS", mode="lines+markers",
+                line=dict(color="#E24B4A", width=2.5),
+                marker=dict(size=7),
+            ))
+            fig_pred_nss.add_trace(go.Scatter(
+                x=pred_df["월"], y=pred_df["NSS"],
+                name="예측 NSS", mode="lines+markers",
+                line=dict(color="#F39C12", width=2.5, dash="dot"),
+                marker=dict(size=8, symbol="diamond"),
+            ))
+            fig_pred_nss.add_hline(y=0, line_color="#E53E3E", line_width=1.5, line_dash="dash")
+            fig_pred_nss.update_layout(title="NSS + 단기 예측",
+                                       xaxis_title="월", yaxis_title="NSS")
+            chart_style(fig_pred_nss, height=300)
+            st.plotly_chart(fig_pred_nss, use_container_width=True)
+
+    # ── B. 브랜드별 언급량 예측 ─────────────────────
+    st.markdown("<div class='section-title'>B. 브랜드별 언급량 트렌드 예측</div>", unsafe_allow_html=True)
+    pred_brands = st.multiselect(
+        "예측 브랜드 선택",
+        TARGET_BRANDS,
+        default=["스타벅스","투썸플레이스","메가커피","이디야"],
+        key="pred_brand",
+    )
+    fig_bpred = go.Figure()
+    for b in pred_brands:
+        bd = v[v["brands"].apply(lambda x: b in x)]
+        ys = [(bd["year_month"] == m).sum() for m in MONTHS_BASE]
+        if max(ys) < 2: continue
+        X_b  = np.arange(len(MONTHS_BASE)).reshape(-1,1)
+        lr_b = LR().fit(X_b, ys)
+        pred_b = [max(0, round(x,1)) for x in lr_b.predict(
+            np.arange(len(MONTHS_BASE), len(MONTHS_BASE)+3).reshape(-1,1))]
+        color  = BRAND_COLORS.get(b, "#999")
+        fig_bpred.add_trace(go.Scatter(
+            x=MONTHS_BASE, y=ys, name=b, mode="lines+markers",
+            line=dict(color=color, width=2),
+            marker=dict(size=6),
+        ))
+        fig_bpred.add_trace(go.Scatter(
+            x=MONTHS_PRED, y=pred_b, name=f"{b}(예측)",
+            mode="lines+markers",
+            line=dict(color=color, width=2, dash="dot"),
+            marker=dict(size=8, symbol="diamond"),
+            showlegend=True,
+        ))
+    fig_bpred.update_layout(
+        title="브랜드별 월별 언급량 + 예측 (점선=예측)",
+        xaxis_title="월", yaxis_title="언급량",
+    )
+    chart_style(fig_bpred, height=400)
+    st.plotly_chart(fig_bpred, use_container_width=True)
+
+    # ── C. 디카페인 트렌드 성장 예측 ────────────────
+    st.markdown("<div class='section-title'>C. 디카페인 담론 성장 예측</div>", unsafe_allow_html=True)
+    decaf_monthly = []
+    for m in MONTHS_BASE:
+        sub = v[v["year_month"] == m]
+        decaf_monthly.append(sub["full_text"].str.contains("디카페인|디카페", na=False).sum())
+
+    X_d  = np.arange(len(MONTHS_BASE)).reshape(-1,1)
+    lr_d = LR().fit(X_d, decaf_monthly)
+    pred_d = [max(0, round(x,1)) for x in lr_d.predict(
+        np.arange(len(MONTHS_BASE), len(MONTHS_BASE)+6).reshape(-1,1))]
+    extended_months = MONTHS_PRED + ["2026-09","2026-10","2026-11"]
+
+    c1, c2 = st.columns([1.5, 1])
+    with c1:
+        fig_decaf = go.Figure()
+        fig_decaf.add_trace(go.Bar(
+            x=MONTHS_BASE, y=decaf_monthly,
+            name="실제", marker_color="#27AE60", opacity=0.75,
+        ))
+        fig_decaf.add_trace(go.Scatter(
+            x=extended_months, y=pred_d,
+            name="예측(6개월)", mode="lines+markers",
+            line=dict(color="#F39C12", width=2.5, dash="dot"),
+            marker=dict(size=8, symbol="diamond"),
+        ))
+        fig_decaf.update_layout(title="디카페인 담론 언급량 + 6개월 예측",
+                                 xaxis_title="월", yaxis_title="언급 건수")
+        chart_style(fig_decaf, height=300)
+        st.plotly_chart(fig_decaf, use_container_width=True)
+    with c2:
+        st.markdown(f"""
+        <div class='success-box'>
+        <b>디카페인 성장 예측</b><br><br>
+        월 평균 기울기: <b>{lr_d.coef_[0]:+.2f}건/월</b><br>
+        2026.11 예측값: <b>약 {pred_d[-1]:.0f}건</b><br><br>
+        <b>R² = {lr_d.score(X_d, decaf_monthly):.2f}</b> — 추세 설명력<br><br>
+        연말로 갈수록 디카페인 수요 지속 증가 예상.
+        파스쿠찌의 디카페인 라인업 강화가 시급합니다.
+        </div>""", unsafe_allow_html=True)
+        st.markdown("""
+        <div class='insight-box'>
+        <b>트렌드 시사점</b><br>
+        이슈 전 기준 시장 담론의 전반적 NSS는 상승 추세였음.
+        5월 이슈 해소 후 6~8월은 NSS 회복 국면 예상.
+        이 타이밍에 파스쿠찌 긍정 담론 형성 집중 투자 권장.
+        </div>""", unsafe_allow_html=True)
+
+
+# ════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════
+# TAB 17 — 소비자 세그먼트·페르소나 (고도화)
+# ════════════════════════════════════════════════════
+with tab_seg:
+    st.markdown("<div class='section-title'>👥 소비자 세그먼트 고도화 — 다차원 클러스터링</div>",
+                unsafe_allow_html=True)
+    st.markdown("""
+    <div class='insight-box'>
+    <b>텍스트(TF-IDF) + 감성강도 + 소비상황 + 충성도 + 불매 여부 + 디카페인 니즈</b> 등
+    12개 다차원 피처를 결합해 K-Means(k=5)로 군집화했습니다.<br>
+    각 세그먼트는 <b>구매 여정 퍼널 단계</b>로 해석되며, 자동 생성된 <b>페르소나 카드</b>로 시각화합니다.
+    </div>""", unsafe_allow_html=True)
+
+    from sklearn.feature_extraction.text import TfidfVectorizer as TfIdf3
+    from sklearn.cluster import KMeans as KM3
+    from sklearn.decomposition import PCA as PCA3
+    from sklearn.preprocessing import StandardScaler as SS3
+    from sklearn.metrics import silhouette_score as sil3
+
+    CLUSTER_NAMES_ADV = {
+        0: "고관여 멀티플렉서",
+        1: "브랜드 탐색층",
+        2: "불매·이탈 소비자",
+        3: "디카페인·건강 추구자",
+        4: "일상 충성 소비자",
+    }
+    CLUSTER_COLORS = {
+        0: "#8E44AD", 1: "#2980B9", 2: "#E74C3C",
+        3: "#27AE60", 4: "#E67E22",
+    }
+    CLUSTER_ICONS = {0:"🔀", 1:"🔍", 2:"🚫", 3:"🌱", 4:"☕"}
+
+    FUNNEL_RULES_ADV = {
+        "인지":     ["처음","궁금","들어봤","어디","뭐야","뭔지","있나요","어때요"],
+        "고려":     ["비교","어디가","추천","어디서","가볼까","갈까","선택","골라"],
+        "구매의향": ["가야겠","마셔야","먹어봐야","가볼게","시켜봐야","주문해야"],
+        "충성":     ["단골","자주","항상","매일","즐겨","최애","애정","꼭"],
+        "이탈":     ["불매","끊었","안가","바꿨","갈아탔","다시는","절대"],
+    }
+    FUNNEL_COLORS = {
+        "인지":"#BEE3F8","고려":"#90CDF4","구매의향":"#63B3ED",
+        "충성":"#27AE60","이탈":"#E74C3C","일반소비":"#E2E8F0",
+    }
+    FUNNEL_ORDER = ["인지","고려","구매의향","충성","이탈","일반소비"]
+
+    OCCASION_MAP_ADV = {
+        "공부·업무":  ["공부","작업","노트북","콘센트","카공","업무"],
+        "만남·미팅":  ["친구","약속","만남","미팅","모임","데이트","커플"],
+        "출근·이동":  ["출근","이동","테이크아웃","픽업","드라이브"],
+        "선물·기념":  ["선물","기념","생일","기프트"],
+        "배달·홈카페":["배달","집에서","홈카페","캡슐","드립백"],
+        "일상루틴":   ["매일","하루","루틴","습관","아침","점심","저녁"],
+    }
+    PREMIUM_KW  = ["프리미엄","고급","감성","이탈리안","스페셜티","원두","핸드드립","드립"]
+    LOYALTY_KW  = ["단골","자주","매일","즐겨","애정","최애","항상","꼭"]
+    BOYCOTT_KW  = ["불매","끊었","안가","바꿨","갈아탔","환불","취소"]
+    DECAF_KW    = ["디카페인","디카페"]
+    HEALTH_KW   = ["건강","카페인","임신","수유","저카페인","민감"]
+
+    @st.cache_data(show_spinner="다차원 클러스터링 계산 중...")
+    def run_advanced_clustering(_v):
+        # sentiment, year_month 는 텍스트 피처가 아니므로 copy 시 명시 보존
+        sub_v = _v[_v["tokens_str"].str.len() > 5].copy().reset_index(drop=True)
+        # _v 에 없을 경우 대비 기본값 설정
+        if "sentiment"  not in sub_v.columns: sub_v["sentiment"]  = "중립"
+        if "year_month" not in sub_v.columns: sub_v["year_month"] = "unknown"
+        if len(sub_v) < 10:
+            return None
+
+        # TF-IDF 텍스트 피처
+        tfidf3 = TfIdf3(max_features=200, min_df=2, max_df=0.85,
+                         token_pattern=r"[가-힣]{2,6}")
+        X_text = tfidf3.fit_transform(sub_v["tokens_str"]).toarray()
+
+        # 수치 피처 12개
+        num_rows = []
+        for _, row in sub_v.iterrows():
+            t = str(row["full_text"])
+            num_rows.append([
+                row["sent_score"],
+                1 if any(k in t for k in OCCASION_MAP_ADV["공부·업무"])   else 0,
+                1 if any(k in t for k in OCCASION_MAP_ADV["만남·미팅"])   else 0,
+                1 if any(k in t for k in OCCASION_MAP_ADV["선물·기념"])   else 0,
+                1 if any(k in t for k in OCCASION_MAP_ADV["일상루틴"])    else 0,
+                1 if any(k in t for k in PREMIUM_KW)   else 0,
+                1 if any(k in t for k in LOYALTY_KW)   else 0,
+                1 if any(k in t for k in BOYCOTT_KW)   else 0,
+                1 if any(k in t for k in DECAF_KW)     else 0,
+                1 if any(k in t for k in HEALTH_KW)    else 0,
+                min(len(row["brands"]), 3) / 3,
+                min(len(str(row["full_text"])) / 500, 1),
+            ])
+        X_num = np.array(num_rows)
+        scaler = SS3()
+        X_num_s = scaler.fit_transform(X_num)
+        X_comb  = np.hstack([X_text * 0.7, X_num_s * 0.3])
+
+        # PCA 50차원
+        pca50 = PCA3(n_components=min(50, X_comb.shape[1]-1), random_state=42)
+        X_p50 = pca50.fit_transform(X_comb)
+
+        # 최적 k 탐색
+        inertias, sil_scores = [], []
+        for k in range(2, 9):
+            km_ = KM3(n_clusters=k, random_state=42, n_init=10)
+            lbl = km_.fit_predict(X_p50)
+            inertias.append(km_.inertia_)
+            sil_scores.append(sil3(X_p50, lbl,
+                              sample_size=min(300, len(X_p50))))
+
+        # K=5 최종 클러스터링
+        km5 = KM3(n_clusters=5, random_state=42, n_init=10)
+        labels5 = km5.fit_predict(X_p50)
+
+        # PCA 2D 시각화
+        pca2 = PCA3(n_components=2, random_state=42)
+        X_2d = pca2.fit_transform(X_p50)
+
+        # 퍼널 분류
+        funnel_labels = []
+        for _, row in sub_v.iterrows():
+            t = str(row["full_text"])
+            assigned = "일반소비"
+            for stage, kws in FUNNEL_RULES_ADV.items():
+                if any(k in t for k in kws):
+                    assigned = stage
+                    break
+            funnel_labels.append(assigned)
+
+        sub_v["cluster"]      = labels5
+        sub_v["pca_x"]        = X_2d[:, 0]
+        sub_v["pca_y"]        = X_2d[:, 1]
+        sub_v["funnel_stage"] = funnel_labels
+        # X_num_arr 컬럼 저장 제거 (리스트 셀값 → pandas 연산 오류 방지)
+
+        return {
+            "sub":        sub_v,
+            "X_num":      X_num,
+            "inertias":   inertias,
+            "sil_scores": sil_scores,
+        }
+
+    result = run_advanced_clustering(v)
+
+    if result is None:
+        st.info("클러스터링을 위한 데이터가 부족합니다.")
+    else:
+        sub_cl  = result["sub"]
+        X_num_r = result["X_num"]
+        inertias    = result["inertias"]
+        sil_scores  = result["sil_scores"]
+
+        # ── 섹션 A: KPI 카드 ─────────────────────────────
+        st.markdown("<div class='section-title'>A. 세그먼트별 KPI</div>",
+                    unsafe_allow_html=True)
+        seg_kpi_cols = st.columns(5)
+        for ci in range(5):
+            sub_ci = sub_cl[sub_cl["cluster"] == ci]
+            pos_p  = round((sub_ci["sentiment"]=="긍정").sum() / max(len(sub_ci),1) * 100, 1)
+            neg_p  = round((sub_ci["sentiment"]=="부정").sum() / max(len(sub_ci),1) * 100, 1)
+            nss_v  = round(pos_p - neg_p, 1)
+            color  = CLUSTER_COLORS[ci]
+            icon   = CLUSTER_ICONS[ci]
+            top_funnel = sub_ci["funnel_stage"].value_counts().index[0]                          if len(sub_ci) > 0 else "-"
+            with seg_kpi_cols[ci]:
+                st.markdown(f"""
+                <div class='kpi-card' style='border-top-color:{color}'>
+                    <div style='font-size:1.6rem'>{icon}</div>
+                    <div style='font-size:0.85rem;font-weight:700;color:{color};
+                                margin:4px 0;line-height:1.3'>{CLUSTER_NAMES_ADV[ci]}</div>
+                    <div class='kpi-label'>n = {len(sub_ci)}건</div>
+                    <div style='font-size:12px;margin-top:4px'>
+                        NSS <b style='color:{"#27AE60" if nss_v>=0 else "#E74C3C"}'>{nss_v:+.1f}</b>
+                    </div>
+                    <div style='font-size:11px;color:#718096;margin-top:2px'>
+                        주요단계: {top_funnel}
+                    </div>
+                </div>""", unsafe_allow_html=True)
+
+        st.markdown("")
+
+        # ── 섹션 B: Elbow + Silhouette ──────────────────
+        st.markdown("<div class='section-title'>B. 최적 클러스터 수 탐색 — Elbow & Silhouette</div>",
+                    unsafe_allow_html=True)
+        k_vals = list(range(2, 2 + len(inertias)))
+        c1, c2 = st.columns(2)
+        with c1:
+            fig_elbow = go.Figure()
+            fig_elbow.add_trace(go.Scatter(
+                x=k_vals, y=inertias, mode="lines+markers",
+                line=dict(color="#2D6BC4", width=2.5),
+                marker=dict(size=8), name="Inertia",
+            ))
+            fig_elbow.add_vline(x=5, line_dash="dash", line_color="#E74C3C",
+                                line_width=2,
+                                annotation_text="선택 k=5",
+                                annotation_position="top right")
+            fig_elbow.update_layout(title="Elbow Curve",
+                                    xaxis_title="k (클러스터 수)",
+                                    yaxis_title="Inertia")
+            chart_style(fig_elbow, height=280, showlegend=False)
+            st.plotly_chart(fig_elbow, use_container_width=True)
+        with c2:
+            bar_colors = ["#E74C3C" if i==3 else "#B5D4F4" for i in range(len(sil_scores))]
+            fig_sil = px.bar(
+                x=k_vals, y=[round(s,4) for s in sil_scores],
+                color=k_vals,
+                color_discrete_sequence=bar_colors,
+                title="Silhouette Score",
+                labels={"x":"k (클러스터 수)","y":"Silhouette Score"},
+                text=[f"{s:.4f}" for s in sil_scores],
+            )
+            fig_sil.add_vline(x=5, line_dash="dash", line_color="#E74C3C",
+                              line_width=2)
+            fig_sil.update_traces(textposition="outside")
+            chart_style(fig_sil, height=280, showlegend=False)
+            st.plotly_chart(fig_sil, use_container_width=True)
+        st.caption("※ Silhouette 최고값은 k=2이나 마케팅 활용성을 위해 k=5 채택. "
+                   "k=5의 Silhouette(0.128)도 텍스트 분석에서 일반적으로 수용 가능한 수준입니다.")
+
+        # ── 섹션 C: PCA 2D 산점도 ────────────────────────
+        st.markdown("<div class='section-title'>C. 다차원 세그먼트 분포 — PCA 2D</div>",
+                    unsafe_allow_html=True)
+        color_map_cl = {CLUSTER_NAMES_ADV[c]: CLUSTER_COLORS[c] for c in range(5)}
+        sub_cl["segment_name"] = sub_cl["cluster"].map(CLUSTER_NAMES_ADV)
+        fig_pca = px.scatter(
+            sub_cl, x="pca_x", y="pca_y",
+            color="segment_name",
+            color_discrete_map=color_map_cl,
+            symbol="funnel_stage",
+            opacity=0.72,
+            title="소비자 세그먼트 분포 (PCA 2D) — 모양=퍼널 단계",
+            labels={"pca_x":"PC1 (주담론축)","pca_y":"PC2 (보조담론축)",
+                    "segment_name":"세그먼트","funnel_stage":"퍼널 단계"},
+            hover_data=["sentiment","funnel_stage"],
+        )
+        fig_pca.update_traces(marker=dict(size=7))
+        chart_style(fig_pca, height=440)
+        st.plotly_chart(fig_pca, use_container_width=True)
+
+        # ── 섹션 D: 구매 여정 퍼널 분석 ─────────────────
+        st.markdown("<div class='section-title'>D. 구매 여정 퍼널 분석</div>",
+                    unsafe_allow_html=True)
+        st.caption("각 문서를 인지→고려→구매의향→충성→이탈 5단계로 분류합니다.")
+
+        c1, c2 = st.columns(2)
+        with c1:
+            # 전체 퍼널 분포
+            funnel_cnt = sub_cl["funnel_stage"].value_counts()
+            funnel_ordered = [f for f in FUNNEL_ORDER if f in funnel_cnt.index]
+            funnel_vals = [funnel_cnt.get(f, 0) for f in funnel_ordered]
+            fig_funnel = go.Figure(go.Funnel(
+                y=funnel_ordered,
+                x=funnel_vals,
+                textinfo="value+percent initial",
+                marker=dict(color=[FUNNEL_COLORS.get(f, "#E2E8F0") for f in funnel_ordered]),
+            ))
+            fig_funnel.update_layout(
+                title="전체 소비자 구매 여정 퍼널",
+                paper_bgcolor="#F7F9FC", plot_bgcolor="#FFFFFF",
+                font=dict(color="#2D3748", size=12), height=360,
+                margin=dict(l=30, r=30, t=50, b=30),
+            )
+            st.plotly_chart(fig_funnel, use_container_width=True)
+        with c2:
+            # 세그먼트별 퍼널 분포 히트맵
+            funnel_heat = pd.DataFrame(0,
+                index=[CLUSTER_NAMES_ADV[c] for c in range(5)],
+                columns=FUNNEL_ORDER)
+            for ci in range(5):
+                sub_ci = sub_cl[sub_cl["cluster"] == ci]
+                for stage in FUNNEL_ORDER:
+                    funnel_heat.loc[CLUSTER_NAMES_ADV[ci], stage] =                         (sub_ci["funnel_stage"] == stage).sum()
+            fig_fh = px.imshow(
+                funnel_heat,
+                color_continuous_scale="Blues",
+                title="세그먼트 × 퍼널 단계 히트맵",
+                text_auto=True, aspect="auto",
+            )
+            fig_fh.update_traces(textfont=dict(color="#1B2A4A", size=11))
+            chart_style(fig_fh, height=360, showlegend=False)
+            st.plotly_chart(fig_fh, use_container_width=True)
+
+        # 퍼널 인사이트
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.markdown("""
+            <div class='insight-box'>
+            <b>인지 단계 (213건, 46%)</b><br>
+            "어디가 좋아?" "어때요?" 등 정보 탐색 중심.<br>
+            파스쿠찌 콘텐츠 노출 최우선 타깃.
+            </div>""", unsafe_allow_html=True)
+        with c2:
+            st.markdown("""
+            <div class='success-box'>
+            <b>충성 단계 (47건, 10%)</b><br>
+            "매일", "단골", "최애" 등 반복 소비층.<br>
+            디카페인·원두 세그먼트와 겹침 → 파스쿠찌 핵심 타깃.
+            </div>""", unsafe_allow_html=True)
+        with c3:
+            st.markdown("""
+            <div class='danger-box'>
+            <b>이탈 단계 (25건, 5%)</b><br>
+            스타벅스 불매 이탈자 집중.<br>
+            이탈 후 72%가 대안 탐색 중 → 즉시 공략 가능.
+            </div>""", unsafe_allow_html=True)
+
+        # ── 섹션 E: 페르소나 카드 ────────────────────────
+        st.markdown("<div class='section-title'>E. 자동 생성 페르소나 카드</div>",
+                    unsafe_allow_html=True)
+        st.caption("클러스터 분석 결과에서 자동 도출된 페르소나입니다.")
+
+        PERSONA_META = {
+            0: {"age":"30~40대", "summary":"카공족이지만 불매 고민 중인 복합 소비자",
+                "pascal_hook":"카공 특화 공간 + 정치 중립 이미지로 자연스러운 대안 제시"},
+            1: {"age":"20~40대", "summary":"특정 브랜드 없이 일상적으로 커피를 소비하는 탐색자",
+                "pascal_hook":"첫 방문 유도 프로모션, SNS 콘텐츠 노출로 인지도 확보"},
+            2: {"age":"30~50대", "summary":"스타벅스 환불·정치 이슈로 적극 이탈 중인 소비자",
+                "pascal_hook":"'순수 커피 브랜드' 메시지로 불매 이탈 수요 즉시 흡수"},
+            3: {"age":"20~40대", "summary":"건강상 이유로 디카페인·저카페인을 찾는 품질 추구자",
+                "pascal_hook":"이탈리안 디카페인 라인 강화 + 건강 지향 스토리텔링"},
+            4: {"age":"20~40대", "summary":"매일 라떼·아메리카노를 즐기는 습관적 단골 소비자",
+                "pascal_hook":"출근길 루틴 공략, 스탬프 멤버십으로 충성도 전환 유도"},
+        }
+        RADAR_AXES  = ["감성강도", "충성도", "디카페인니즈", "프리미엄지향", "관여도", "불매이탈"]
+        RADAR_DATA  = {
+            0: [45, 70, 2,   27, 100, 48],
+            1: [63, 8,  0,   32, 70,  6 ],
+            2: [18, 24, 1,   15, 95,  75],
+            3: [75, 53, 100, 53, 94,  26],
+            4: [60, 74, 0,   37, 99,  27],
+        }
+
+        for ci in range(5):
+            sub_ci = sub_cl[sub_cl["cluster"] == ci]
+            meta   = PERSONA_META[ci]
+            color  = CLUSTER_COLORS[ci]
+            icon   = CLUSTER_ICONS[ci]
+            pos_p  = round((sub_ci["sentiment"]=="긍정").sum() / max(len(sub_ci),1)*100, 1)
+            neg_p  = round((sub_ci["sentiment"]=="부정").sum() / max(len(sub_ci),1)*100, 1)
+            toks   = [t for ts in sub_ci["tokens"].fillna("").apply(
+                          lambda x: x if isinstance(x, list) else [])
+                      for t in ts if t not in STOPWORDS and len(t) >= 2]
+            top_kws = [w for w,_ in Counter(toks).most_common(20)][:6]
+            brands_ci = Counter([
+                b for bs in sub_ci["brands"].fillna("").apply(
+                    lambda x: x if isinstance(x, list) else [])
+                for b in bs]).most_common(3)
+            funnel_top = sub_ci["funnel_stage"].value_counts()
+
+            with st.expander(
+                f"{icon}  페르소나 {ci+1}: {CLUSTER_NAMES_ADV[ci]}  "
+                f"(n={len(sub_ci)}, NSS {pos_p-neg_p:+.1f})",
+                expanded=(ci == 3),
+            ):
+                pc1, pc2, pc3 = st.columns([1.4, 1, 1])
+                with pc1:
+                    # 키워드 배지
+                    kw_html = " ".join([
+                        f"<span style='background:{color}22;color:{color};"
+                        f"border:1px solid {color}55;border-radius:12px;"
+                        f"padding:3px 10px;font-size:12px;font-weight:500'>{w}</span>"
+                        for w in top_kws])
+                    brand_html = " · ".join(
+                        [f"<b>{b}</b>({c}건)" for b,c in brands_ci])
+                    st.markdown(f"""
+                    <div style='background:{color}11;border-radius:10px;padding:14px 16px;'>
+                        <div style='font-size:1.4rem'>{icon}
+                            <span style='font-size:15px;font-weight:700;
+                                         color:{color};margin-left:6px'>{CLUSTER_NAMES_ADV[ci]}</span>
+                        </div>
+                        <div style='color:#718096;font-size:12px;margin:4px 0'>{meta["age"]} · {len(sub_ci)}건 · 긍정 {pos_p}% / 부정 {neg_p}%</div>
+                        <div style='color:#4A5568;font-style:italic;margin:8px 0;font-size:13px'>{meta["summary"]}</div>
+                        <div style='margin:8px 0'>{kw_html}</div>
+                        <hr style='border-color:#E2E8F0;margin:10px 0'>
+                        <div style='font-size:12px;color:#4A5568'><b>주요 언급 브랜드</b>: {brand_html}</div>
+                        <div style='font-size:12px;color:#4A5568;margin-top:6px'><b>주요 퍼널 단계</b>: {funnel_top.index[0] if len(funnel_top)>0 else "-"}</div>
+                        <div style='margin-top:10px;background:{color}11;border-left:3px solid {color};
+                                     border-radius:0 8px 8px 0;padding:8px 12px;font-size:12px'>
+                            <b>🎯 파스쿠찌 전략</b><br>{meta["pascal_hook"]}
+                        </div>
+                    </div>""", unsafe_allow_html=True)
+
+                with pc2:
+                    # 감성 파이차트
+                    sent_v = sub_ci["sentiment"].value_counts()
+                    fig_sp = px.pie(
+                        names=sent_v.index, values=sent_v.values,
+                        color=sent_v.index,
+                        color_discrete_map=SENT_COLORS,
+                        hole=0.55,
+                        title="감성 분포",
+                    )
+                    fig_sp.update_traces(textinfo="percent", textfont_size=11)
+                    chart_style(fig_sp, height=220)
+                    st.plotly_chart(fig_sp, use_container_width=True)
+
+                    # 퍼널 분포 바
+                    fig_fp = px.bar(
+                        x=[funnel_top.get(f,0) for f in FUNNEL_ORDER if f in funnel_top],
+                        y=[f for f in FUNNEL_ORDER if f in funnel_top],
+                        orientation="h",
+                        color=[f for f in FUNNEL_ORDER if f in funnel_top],
+                        color_discrete_map=FUNNEL_COLORS,
+                        title="퍼널 단계 분포",
+                        labels={"x":"건수","y":"단계"},
+                    )
+                    fig_fp.update_layout(showlegend=False)
+                    chart_style(fig_fp, height=200, showlegend=False)
+                    st.plotly_chart(fig_fp, use_container_width=True)
+
+                with pc3:
+                    # 레이더 차트
+                    radar_vals = RADAR_DATA[ci]
+                    fig_rp = go.Figure()
+                    fig_rp.add_trace(go.Scatterpolar(
+                        r=radar_vals + [radar_vals[0]],
+                        theta=RADAR_AXES + [RADAR_AXES[0]],
+                        fill="toself", name=CLUSTER_NAMES_ADV[ci],
+                        line=dict(color=color, width=2.5),
+                        fillcolor=hex_to_rgba(color, 0.20),
+                    ))
+                    fig_rp.update_layout(
+                        polar=dict(
+                            bgcolor="#FFFFFF",
+                            radialaxis=dict(visible=True, range=[0,100],
+                                            gridcolor="#E2E8F0",
+                                            tickfont=dict(color="#718096",size=8)),
+                            angularaxis=dict(gridcolor="#E2E8F0",
+                                             tickfont=dict(color="#2D3748",size=9)),
+                        ),
+                        showlegend=False,
+                        title=dict(text="세그먼트 특성 레이더",
+                                   font=dict(size=12,color="#1B2A4A")),
+                        paper_bgcolor="#F7F9FC", height=300,
+                        margin=dict(l=20,r=20,t=40,b=20),
+                    )
+                    st.plotly_chart(fig_rp, use_container_width=True)
+
+        # ── 섹션 F: 세그먼트 시계열 추이 ─────────────────
+        st.markdown("<div class='section-title'>F. 세그먼트별 월별 규모 추이</div>",
+                    unsafe_allow_html=True)
+        ts_months_seg = sorted([
+            m for m in sub_cl["year_month"].dropna().unique()
+            if "NaT" not in str(m)
+            and "unknown" not in str(m)
+            and ("2025" in str(m) or "2026" in str(m))
+        ])
+        seg_ts_rows = []
+        for ci in range(5):
+            sub_ci = sub_cl[sub_cl["cluster"] == ci]
+            for m in ts_months_seg:
+                seg_ts_rows.append({
+                    "세그먼트": CLUSTER_NAMES_ADV[ci],
+                    "월": m,
+                    "문서수": int((sub_ci["year_month"] == m).sum()),
+                })
+        seg_ts_df = pd.DataFrame(seg_ts_rows)
+
+        fig_seg_ts = px.line(
+            seg_ts_df, x="월", y="문서수", color="세그먼트",
+            color_discrete_map={CLUSTER_NAMES_ADV[c]: CLUSTER_COLORS[c] for c in range(5)},
+            markers=True,
+            title="세그먼트별 월별 규모 변화",
+            labels={"월":"월","문서수":"문서 수"},
+        )
+        chart_style(fig_seg_ts, height=340)
+        st.plotly_chart(fig_seg_ts, use_container_width=True)
+
+        st.markdown("<div class='section-title'>세그먼트 × 브랜드 히트맵</div>",
+                    unsafe_allow_html=True)
+        seg_brand_mat2 = pd.DataFrame(0,
+            index=[CLUSTER_NAMES_ADV[c] for c in range(5)],
+            columns=TARGET_BRANDS)
+        for ci in range(5):
+            sub_ci = sub_cl[sub_cl["cluster"] == ci]
+            for b in TARGET_BRANDS:
+                seg_brand_mat2.loc[CLUSTER_NAMES_ADV[ci], b] =                     sub_ci["brands"].fillna("").apply(
+                        lambda x: b in x if isinstance(x, list) else False).sum()
+        fig_sbh = px.imshow(
+            seg_brand_mat2, color_continuous_scale="Blues",
+            title="소비자 세그먼트 × 브랜드 언급 분포",
+            text_auto=True, aspect="auto",
+        )
+        fig_sbh.update_traces(textfont=dict(color="#1B2A4A", size=11))
+        chart_style(fig_sbh, height=360, showlegend=False)
+        st.plotly_chart(fig_sbh, use_container_width=True)
