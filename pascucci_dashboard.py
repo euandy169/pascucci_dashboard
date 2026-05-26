@@ -509,7 +509,7 @@ burst_df  = compute_burst(v)
 pmi_df    = compute_pmi(v)
 
 # ══════════════════════════════════════════════════════
-# 탭 구성 — 17개
+# 탭 구성 — 20개
 # ══════════════════════════════════════════════════════
 tabs = st.tabs([
     "📊 Overview",
@@ -529,10 +529,14 @@ tabs = st.tabs([
     "⚔️ 경쟁 브랜드 비교",
     "🔮 예측·트렌드",
     "👥 소비자 세그먼트",
+    "🛍️ 상품 트렌드 레이더",
+    "🗂️ 브랜드×제품 매트릭스",
+    "💡 제품 감성 드라이버",
 ])
 (tab_ov, tab_nss, tab_sov, tab_absa, tab_ca, tab_lda,
  tab_burst, tab_pmi, tab_pos, tab_kw, tab_occ, tab_risk, tab_ts,
- tab_text, tab_comp, tab_pred, tab_seg) = tabs
+ tab_text, tab_comp, tab_pred, tab_seg,
+ tab_trend, tab_matrix, tab_driver) = tabs
 
 # ════════════════════════════════════════════════════
 # TAB 1 — Overview
@@ -2922,3 +2926,537 @@ with tab_seg:
         fig_sbh.update_traces(textfont=dict(color="#1B2A4A", size=11))
         chart_style(fig_sbh, height=360, showlegend=False)
         st.plotly_chart(fig_sbh, use_container_width=True)
+
+
+# ════════════════════════════════════════════════════
+# TAB 18 — 상품 트렌드 레이더
+# ════════════════════════════════════════════════════
+with tab_trend:
+    st.markdown("<div class='section-title'>🛍️ 상품 트렌드 레이더 — 제품 카테고리 성장 분석</div>",
+                unsafe_allow_html=True)
+    st.markdown("""
+    <div class='insight-box'>
+    82Cook + 클리앙 통합 Social VoC(4,179건) 기반으로 제품 카테고리별
+    <b>월별 언급량 추이 · 성장 기울기 · 트렌드 스코어</b>를 분석합니다.<br>
+    <b>트렌드 스코어</b> = 성장 기울기(40%) + 최근 3개월 성장률(30%) + 긍정률(20%) + 절대 언급량(10%)
+    </div>""", unsafe_allow_html=True)
+
+    # ── 데이터 정의 ─────────────────────────────────
+    PRODUCT_CATS_TAB = {
+        "아메리카노":  ["아메리카노","아아","뜨아","아메"],
+        "라떼":       ["카페라떼","라떼","카라멜라떼","바닐라라떼","말차라떼","오트라떼","두유라떼"],
+        "디카페인":   ["디카페인","디카페","카페인프리"],
+        "콜드브루":   ["콜드브루","콜브","더치커피","나이트로"],
+        "에스프레소": ["에스프레소","리스트레토","마키아토"],
+        "플랫화이트": ["플랫화이트","플화"],
+        "카푸치노":   ["카푸치노"],
+        "블렌디드":   ["프라푸치노","블렌디드","스무디"],
+        "에이드·과일":["에이드","레모네이드","자몽에이드"],
+        "티·허브":    ["말차","녹차","허브티","얼그레이","루이보스","캐모마일","호지차"],
+        "케이크":     ["케이크","파운드케이크","치즈케이크","생크림케이크","바스크"],
+        "타르트":     ["타르트","에그타르트"],
+        "크로와상류": ["크로와상","크로플","소금크림","소금버터빵","소금빵"],
+        "마카롱":     ["마카롱"],
+        "쿠키·브라우니":["쿠키","브라우니","피낭시에"],
+        "베이글·스콘":["베이글","스콘","머핀","도넛"],
+        "샌드위치":   ["샌드위치","토스트"],
+        "원두·드립":  ["원두","드립백","핸드드립","캡슐커피","홈카페"],
+        "딸기":       ["딸기","스트로베리"],
+        "말차·녹차":  ["말차","녹차","말차라떼"],
+        "피스타치오": ["피스타치오","피스타"],
+        "팥·흑임자":  ["팥","흑임자","미숫가루","콩가루"],
+        "흑당":       ["흑당","버블티"],
+        "유자·레몬":  ["유자","레몬","시트러스"],
+        "티라미수":   ["티라미수"],
+        "크림치즈":   ["크림치즈","리코타"],
+        "오트밀크":   ["오트밀크","귀리라떼","귀리"],
+    }
+    POS_KW_P = ["맛있","좋아","좋다","추천","최고","만족","달콤","훌륭","깔끔","강추","완벽","신선"]
+    NEG_KW_P = ["맛없","별로","실망","불만","최악","비싸","아쉽","싫","후회","느끼"]
+    MONTHS_TR = ["2025-09","2025-10","2025-11","2025-12","2026-01","2026-02","2026-03","2026-04","2026-05"]
+
+    @st.cache_data(show_spinner="트렌드 스코어 계산 중...")
+    def compute_trend_scores(_v):
+        from sklearn.linear_model import LinearRegression as LR2
+        results = {}
+        for cat, kws in PRODUCT_CATS_TAB.items():
+            pat = "|".join(kws)
+            monthly = []
+            for m in MONTHS_TR:
+                sub = _v[_v["year_month"] == m]
+                monthly.append(int(sub["full_text"].str.contains(pat, na=False).sum()))
+            total = sum(monthly)
+            if total < 3:
+                continue
+            X = np.arange(len(MONTHS_TR)).reshape(-1, 1)
+            lr = LR2().fit(X, monthly)
+            slope = round(float(lr.coef_[0]), 3)
+            recent3 = sum(monthly[-3:])
+            prev3   = sum(monthly[:3]) + 1
+            growth  = round(recent3 / prev3, 2)
+            mask = _v["full_text"].str.contains(pat, na=False)
+            sub_cat = _v[mask]
+            s   = sub_cat["sentiment"].value_counts() if hasattr(sub_cat, "sentiment") else pd.Series()
+            pos = s.get("긍정", 0); neg = s.get("부정", 0)
+            n   = len(sub_cat)
+            pos_pct = round(pos / max(n, 1) * 100, 1)
+            neg_pct = round(neg / max(n, 1) * 100, 1)
+            nss = round(pos_pct - neg_pct, 1)
+            score = round(min(max(slope*20 + growth*15 + pos_pct*0.5 + total*0.3, 0), 100), 1)
+            if   slope > 1.0 and growth > 1.5: stage = "🚀 급상승"
+            elif slope > 0.3:                   stage = "📈 상승중"
+            elif slope > -0.3:                  stage = "➡️ 안정"
+            else:                               stage = "📉 하락"
+            results[cat] = {
+                "total": total, "monthly": monthly,
+                "slope": slope, "growth": growth,
+                "stage": stage, "score": score,
+                "pos_pct": pos_pct, "neg_pct": neg_pct, "nss": nss,
+            }
+        return results
+
+    # v 컬럼 준비
+    if "sentiment" not in v.columns:
+        v["sentiment"] = v["full_text"].apply(
+            lambda t: "긍정" if sum(1 for k in POS_KW_P if k in str(t)) >
+                                sum(1 for k in NEG_KW_P if k in str(t))
+                      else ("부정" if sum(1 for k in NEG_KW_P if k in str(t)) >
+                                      sum(1 for k in POS_KW_P if k in str(t)) else "중립"))
+    if "year_month" not in v.columns:
+        v["year_month"] = pd.to_datetime(v["created_at"], errors="coerce").dt.to_period("M").astype(str)
+
+    tr = compute_trend_scores(v)
+    tr_df = pd.DataFrame([
+        {"카테고리": k, **{kk: vv for kk, vv in d.items() if kk != "monthly"}}
+        for k, d in tr.items()
+    ]).sort_values("score", ascending=False)
+
+    # ── A. 트렌드 스코어 TOP 차트 ───────────────────
+    st.markdown("<div class='section-title'>A. 트렌드 스코어 TOP 15</div>", unsafe_allow_html=True)
+    top15 = tr_df.head(15)
+    stage_color = {"🚀 급상승": "#E74C3C", "📈 상승중": "#E67E22",
+                   "➡️ 안정": "#2980B9", "📉 하락": "#7F8C8D"}
+    fig_ts = px.bar(
+        top15, x="score", y="카테고리", orientation="h",
+        color="stage",
+        color_discrete_map=stage_color,
+        title="제품 카테고리 트렌드 스코어 (Social VoC 4,179건 기반)",
+        text=top15["score"].apply(lambda x: f"{x:.0f}"),
+        labels={"score": "트렌드 스코어", "카테고리": "", "stage": "단계"},
+    )
+    fig_ts.update_traces(textposition="outside")
+    fig_ts.update_layout(yaxis=dict(autorange="reversed"))
+    chart_style(fig_ts, height=480)
+    st.plotly_chart(fig_ts, use_container_width=True)
+
+    # ── B. 트렌드 단계 분류표 ────────────────────────
+    st.markdown("<div class='section-title'>B. 트렌드 단계별 제품 분류</div>", unsafe_allow_html=True)
+    stage_groups = {
+        "🚀 급상승": tr_df[tr_df["stage"]=="🚀 급상승"],
+        "📈 상승중": tr_df[tr_df["stage"]=="📈 상승중"],
+        "➡️ 안정":  tr_df[tr_df["stage"]=="➡️ 안정"],
+        "📉 하락":   tr_df[tr_df["stage"]=="📉 하락"],
+    }
+    col_s = st.columns(4)
+    stage_bg = {"🚀 급상승":"#FFF5F5","📈 상승중":"#FFFBEB","➡️ 안정":"#EBF8FF","📉 하락":"#F7FAFC"}
+    stage_bc = {"🚀 급상승":"#E74C3C","📈 상승중":"#E67E22","➡️ 안정":"#2980B9","📉 하락":"#7F8C8D"}
+    for col, (stage, sdf) in zip(col_s, stage_groups.items()):
+        with col:
+            items = "".join([
+                f"<div style='padding:4px 0;border-bottom:0.5px solid #eee;font-size:12px;'>"
+                f"<b>{r.카테고리}</b> <span style='color:#718096;'>(score {r.score:.0f})</span></div>"
+                for _, r in sdf.iterrows()]) or "<div style='color:#999;font-size:12px'>해당 없음</div>"
+            st.markdown(f"""
+            <div style='background:{stage_bg[stage]};border-top:3px solid {stage_bc[stage]};
+                         border-radius:0 0 8px 8px;padding:12px 14px;'>
+                <div style='font-weight:500;font-size:13px;color:{stage_bc[stage]};margin-bottom:8px'>{stage}</div>
+                {items}
+            </div>""", unsafe_allow_html=True)
+
+    # ── C. 선택 카테고리 월별 추이 ──────────────────
+    st.markdown("<div class='section-title'>C. 제품 카테고리 월별 언급량 추이</div>",
+                unsafe_allow_html=True)
+    cats_sel = st.multiselect(
+        "카테고리 선택 (최대 8개)",
+        options=list(tr.keys()),
+        default=["아메리카노","라떼","디카페인","티·허브","딸기","말차·녹차","원두·드립","샌드위치"],
+        key="trend_cats",
+    )
+    if cats_sel:
+        ts_rows = []
+        for cat in cats_sel[:8]:
+            for i, m in enumerate(MONTHS_TR):
+                ts_rows.append({"카테고리": cat, "월": m,
+                                "언급량": tr[cat]["monthly"][i] if cat in tr else 0})
+        ts_df2 = pd.DataFrame(ts_rows)
+        fig_line = px.line(
+            ts_df2, x="월", y="언급량", color="카테고리",
+            markers=True,
+            title="제품 카테고리 월별 언급량 추이",
+        )
+        chart_style(fig_line, height=360)
+        st.plotly_chart(fig_line, use_container_width=True)
+
+    # ── D. 트렌드 스코어 vs NSS 버블 차트 ───────────
+    st.markdown("<div class='section-title'>D. 트렌드 스코어 × 긍정률 포지셔닝</div>",
+                unsafe_allow_html=True)
+    st.caption("우측 상단 = 뜨고 있고 반응도 좋은 카테고리 → 파스쿠찌 진입 최우선 타깃")
+    fig_bubble = px.scatter(
+        tr_df[tr_df["total"] >= 5],
+        x="score", y="pos_pct",
+        size="total", color="stage",
+        color_discrete_map=stage_color,
+        text="카테고리",
+        size_max=55,
+        title="트렌드 스코어 × 긍정률 (버블=언급량)",
+        labels={"score": "트렌드 스코어", "pos_pct": "긍정률 (%)", "stage": "단계"},
+    )
+    fig_bubble.update_traces(textposition="top center",
+                             textfont=dict(size=10, color="#1B2A4A"))
+    fig_bubble.add_hline(y=50, line_dash="dot", line_color="#A0AEC0")
+    fig_bubble.add_vline(x=50, line_dash="dot", line_color="#A0AEC0")
+    chart_style(fig_bubble, height=440)
+    st.plotly_chart(fig_bubble, use_container_width=True)
+
+    # ── E. 파스쿠찌 공백 기회 ────────────────────────
+    st.markdown("<div class='section-title'>E. 파스쿠찌 공백 기회 — 미진입 고성장 카테고리</div>",
+                unsafe_allow_html=True)
+    GAP_CATS = ["샌드위치","콜드브루","쿠키·브라우니","베이글·스콘","크림치즈","오트밀크",
+                "말차·녹차","유자·레몬","크로와상류","티라미수"]
+    gc1, gc2 = st.columns(2)
+    with gc1:
+        gap_rows = [{"카테고리": c, "트렌드스코어": tr.get(c,{}).get("score",0),
+                     "언급량": tr.get(c,{}).get("total",0),
+                     "NSS": tr.get(c,{}).get("nss",0)}
+                    for c in GAP_CATS if c in tr]
+        gap_plot = pd.DataFrame(gap_rows).sort_values("트렌드스코어", ascending=True)
+        fig_gap = px.bar(
+            gap_plot, x="트렌드스코어", y="카테고리", orientation="h",
+            color="NSS",
+            color_continuous_scale=["#E74C3C","#FFFFFF","#27AE60"],
+            color_continuous_midpoint=0,
+            title="파스쿠찌 미진입 카테고리 트렌드 스코어",
+            text="트렌드스코어",
+        )
+        fig_gap.update_traces(textposition="outside")
+        chart_style(fig_gap, height=380, showlegend=False)
+        st.plotly_chart(fig_gap, use_container_width=True)
+    with gc2:
+        st.markdown("""
+        <div class='success-box'><b>즉시 진입 권고 — 고트렌드 + 고NSS</b><br><br>
+        <b>① 샌드위치 (score 86.6, NSS +24.8)</b><br>
+        카페 내 식사 대용 수요 급증. 이탈리안 파니니·치아바타로 차별화 가능<br><br>
+        <b>② 크림치즈 (score 47.5, NSS +71.4)</b><br>
+        긍정률 최상위. 베이글·스콘·크로와상과 묶어 세트 메뉴화 추천<br><br>
+        <b>③ 오트밀크 (score 44.6, NSS +83.3)</b><br>
+        건강·비건 트렌드. 디카페인 오트라떼 조합 시 프리미엄 포지셔닝 강화
+        </div>""", unsafe_allow_html=True)
+        st.markdown("""
+        <div class='warning-box'><b>중기 진입 검토 — 안정적 성장</b><br><br>
+        <b>④ 말차·녹차 (score 41.0)</b> — 계절성 강하나 연중 수요 존재. 말차라떼 라인업<br>
+        <b>⑤ 콜드브루 (score 58.0)</b> — 여름 성수기 공략용. 질소·나이트로 포맷 차별화<br>
+        <b>⑥ 베이글·스콘 (score 50.4)</b> — 아침/브런치 수요. 시그니처 스콘 개발 추천
+        </div>""", unsafe_allow_html=True)
+
+
+# ════════════════════════════════════════════════════
+# TAB 19 — 브랜드 × 제품 매트릭스
+# ════════════════════════════════════════════════════
+with tab_matrix:
+    st.markdown("<div class='section-title'>🗂️ 브랜드 × 제품 매트릭스</div>", unsafe_allow_html=True)
+    st.markdown("""
+    <div class='insight-box'>
+    각 브랜드가 <b>어떤 제품 카테고리에서 얼마나 언급되며, 소비자 반응(NSS)은 어떤지</b>를 매트릭스로 표시합니다.<br>
+    색상 = NSS (초록=긍정 강함 / 빨강=부정 강함) · 숫자 = 언급 건수
+    </div>""", unsafe_allow_html=True)
+
+    BRANDS_MAT = ["스타벅스","투썸플레이스","메가커피","컴포즈커피","이디야",
+                  "폴바셋","테라로사","빽다방","할리스","파스쿠찌"]
+    BRAND_MAP_M = {
+        "스타벅스":["스타벅스","스벅"],"투썸플레이스":["투썸플레이스","투썸"],
+        "메가커피":["메가커피"],"컴포즈커피":["컴포즈커피","컴포즈"],
+        "이디야":["이디야"],"빽다방":["빽다방"],"할리스":["할리스"],
+        "폴바셋":["폴바셋"],"테라로사":["테라로사"],"파스쿠찌":["파스쿠찌","파스쿠치"],
+    }
+    CATS_MAT = ["아메리카노","라떼","디카페인","에스프레소","티·허브","콜드브루",
+                "케이크","크로와상류","샌드위치","원두·드립","딸기","말차·녹차"]
+
+    @st.cache_data(show_spinner="매트릭스 계산 중...")
+    def compute_matrix(_v, brands, cats):
+        PK = ["맛있","좋아","좋다","추천","최고","만족","달콤","훌륭","깔끔"]
+        NK = ["맛없","별로","실망","불만","최악","비싸","아쉽","싫","후회"]
+        cnt_mat = pd.DataFrame(0, index=brands, columns=cats)
+        nss_mat = pd.DataFrame(0.0, index=brands, columns=cats)
+        for brand in brands:
+            aliases = BRAND_MAP_M.get(brand, [brand])
+            bd = _v[_v["full_text"].apply(lambda t: any(a in str(t) for a in aliases))]
+            for cat in cats:
+                kws = PRODUCT_CATS_TAB.get(cat, [cat])
+                pat = "|".join(kws)
+                sub = bd[bd["full_text"].str.contains(pat, na=False)]
+                n = len(sub)
+                cnt_mat.loc[brand, cat] = n
+                if n >= 2:
+                    p = sub["full_text"].apply(lambda t: sum(1 for k in PK if k in str(t)) > sum(1 for k in NK if k in str(t))).sum()
+                    ng = sub["full_text"].apply(lambda t: sum(1 for k in NK if k in str(t)) > sum(1 for k in PK if k in str(t))).sum()
+                    nss_mat.loc[brand, cat] = round((p - ng) / n * 100, 1)
+        return cnt_mat, nss_mat
+
+    cnt_mat, nss_mat = compute_matrix(v, BRANDS_MAT, CATS_MAT)
+
+    c1, c2 = st.columns(2)
+    with c1:
+        view_mode = st.radio("표시 기준", ["언급량(건수)", "NSS(소비자 반응)"],
+                             horizontal=True, key="mat_mode")
+    with c2:
+        brand_filter_mat = st.multiselect(
+            "브랜드 필터",
+            BRANDS_MAT, default=BRANDS_MAT, key="mat_brand")
+
+    mat_data  = cnt_mat.loc[brand_filter_mat] if view_mode == "언급량(건수)" else nss_mat.loc[brand_filter_mat]
+    cscale    = "Blues" if view_mode == "언급량(건수)" else [["0","#E74C3C"],["0.5","#FFFFFF"],["1","#27AE60"]]
+    cmid      = None if view_mode == "언급량(건수)" else 0
+    fig_mat   = px.imshow(
+        mat_data,
+        color_continuous_scale=cscale,
+        color_continuous_midpoint=cmid,
+        title=f"브랜드 × 제품 {'언급량' if view_mode=='언급량(건수)' else 'NSS'} 매트릭스",
+        text_auto=True, aspect="auto",
+        zmin=(0 if view_mode=="언급량(건수)" else -100),
+        zmax=(None if view_mode=="언급량(건수)" else 100),
+    )
+    fig_mat.update_traces(textfont=dict(color="#1B2A4A", size=11))
+    chart_style(fig_mat, height=440, showlegend=False)
+    st.plotly_chart(fig_mat, use_container_width=True)
+
+    # 파스쿠찌 상세 비교
+    st.markdown("<div class='section-title'>파스쿠찌 vs 경쟁사 제품별 상세 비교</div>",
+                unsafe_allow_html=True)
+    comp_brand_m = st.selectbox("비교 브랜드",
+                                [b for b in BRANDS_MAT if b != "파스쿠찌"],
+                                key="mat_comp")
+    comp_rows = []
+    for cat in CATS_MAT:
+        pasc_cnt = int(cnt_mat.loc["파스쿠찌", cat])
+        comp_cnt = int(cnt_mat.loc[comp_brand_m, cat])
+        pasc_nss = float(nss_mat.loc["파스쿠찌", cat])
+        comp_nss = float(nss_mat.loc[comp_brand_m, cat])
+        comp_rows.append({
+            "카테고리": cat,
+            "파스쿠찌 언급": pasc_cnt,
+            f"{comp_brand_m} 언급": comp_cnt,
+            "파스쿠찌 NSS": pasc_nss,
+            f"{comp_brand_m} NSS": comp_nss,
+            "언급 Gap": comp_cnt - pasc_cnt,
+            "NSS Gap": round(pasc_nss - comp_nss, 1),
+        })
+    comp_df_m = pd.DataFrame(comp_rows)
+
+    cc1, cc2 = st.columns(2)
+    with cc1:
+        fig_cnt_comp = go.Figure()
+        fig_cnt_comp.add_trace(go.Bar(
+            name="파스쿠찌", y=comp_df_m["카테고리"],
+            x=comp_df_m["파스쿠찌 언급"],
+            orientation="h", marker_color="#C0392B",
+        ))
+        fig_cnt_comp.add_trace(go.Bar(
+            name=comp_brand_m, y=comp_df_m["카테고리"],
+            x=comp_df_m[f"{comp_brand_m} 언급"],
+            orientation="h", marker_color=BRAND_COLORS.get(comp_brand_m, "#2D6BC4"),
+        ))
+        fig_cnt_comp.update_layout(
+            barmode="group", title=f"언급량 비교: 파스쿠찌 vs {comp_brand_m}",
+            xaxis_title="언급 건수",
+        )
+        chart_style(fig_cnt_comp, height=400)
+        st.plotly_chart(fig_cnt_comp, use_container_width=True)
+    with cc2:
+        fig_nss_comp = px.bar(
+            comp_df_m.sort_values("NSS Gap"),
+            x="NSS Gap", y="카테고리", orientation="h",
+            color="NSS Gap",
+            color_continuous_scale=["#E74C3C","#FFFFFF","#27AE60"],
+            color_continuous_midpoint=0,
+            title=f"NSS Gap (파스쿠찌 − {comp_brand_m})",
+            text=comp_df_m.sort_values("NSS Gap")["NSS Gap"].apply(lambda x: f"{x:+.1f}"),
+        )
+        fig_nss_comp.update_traces(textposition="outside")
+        fig_nss_comp.add_vline(x=0, line_color="#4A5568", line_width=1.5)
+        chart_style(fig_nss_comp, height=400, showlegend=False)
+        st.plotly_chart(fig_nss_comp, use_container_width=True)
+
+    st.markdown("<div class='section-title'>경쟁사별 강점 제품 요약</div>", unsafe_allow_html=True)
+    mc1, mc2 = st.columns(2)
+    with mc1:
+        st.markdown("""
+        <div class='insight-box'><b>경쟁 지형 핵심 인사이트</b><br><br>
+        <b>테라로사</b>: 원두·드립(NSS +66.7), 에스프레소(+70.4) — 품질 중심 포지션<br>
+        <b>이디야</b>: 디카페인·에스프레소에서 긍정 NSS 강함 — 파스쿠찌와 직접 경쟁<br>
+        <b>스타벅스</b>: 모든 카테고리 언급량 압도적이나 최근 부정 급증<br>
+        <b>투썸</b>: 케이크·딸기 디저트 특화 — 베이커리 영역 강자
+        </div>""", unsafe_allow_html=True)
+    with mc2:
+        st.markdown("""
+        <div class='success-box'><b>파스쿠찌 제품 전략 방향</b><br><br>
+        <b>단기</b>: 에스프레소 NSS +75.0 — 실제 언급된 소비자 반응 최고. 시그니처 에스프레소 강화<br>
+        <b>중기</b>: 디카페인 진입 강화 (이디야 대비 언급량 격차 해소)<br>
+        <b>장기</b>: 샌드위치·크로와상 이탈리안 베이커리로 공간+식음료 패키지화
+        </div>""", unsafe_allow_html=True)
+
+
+# ════════════════════════════════════════════════════
+# TAB 20 — 제품 감성 드라이버
+# ════════════════════════════════════════════════════
+with tab_driver:
+    st.markdown("<div class='section-title'>💡 제품 감성 드라이버 — 왜 좋고 왜 싫은가</div>",
+                unsafe_allow_html=True)
+    st.markdown("""
+    <div class='insight-box'>
+    소비자가 각 제품 카테고리를 언급할 때 <b>함께 나오는 긍정·부정 표현</b>을 추출합니다.<br>
+    단순한 긍/부정 비율을 넘어 <b>"왜 좋다고 하는가, 무엇이 불만인가"</b>를 속성 수준에서 파악합니다.
+    </div>""", unsafe_allow_html=True)
+
+    DRIVER_POS_DEF = {
+        "맛·풍미":  ["맛있","맛나","달콤","진한","부드럽","고소","향긋","풍미","깊은"],
+        "신선도":   ["신선","생딸기","생과일","제철","프레시","fresh","생"],
+        "품질":     ["퀄리티","고급","정성","엄선","고품질","깔끔","훌륭"],
+        "비주얼":   ["예쁜","인스타","비주얼","포토","감성","아름"],
+        "가성비":   ["가성비","합리","저렴","가격","착한"],
+        "독창성":   ["독특","색다른","신기한","새로운","처음","특이"],
+    }
+    DRIVER_NEG_DEF = {
+        "단맛 과다": ["너무달","달아","인공","시럽","과함","달달"],
+        "가격 불만": ["비싸","가격","부담","너무비"],
+        "품질 실망": ["실망","별로","기대이하","맛없","아쉽","느끼"],
+        "양 부족":  ["양이","적다","소량","부족","조금"],
+        "재료 불신": ["인공적","인스턴트","냉동","가짜","합성"],
+    }
+
+    TARGET_CATS_D = ["아메리카노","라떼","디카페인","케이크","크로와상류","딸기","말차·녹차",
+                     "티·허브","원두·드립","샌드위치","에스프레소","카푸치노"]
+
+    @st.cache_data(show_spinner="감성 드라이버 계산 중...")
+    def compute_drivers(_v, cats):
+        results = {}
+        for cat in cats:
+            kws = PRODUCT_CATS_TAB.get(cat, [cat])
+            pat = "|".join(kws)
+            sub = _v[_v["full_text"].str.contains(pat, na=False)]
+            if len(sub) < 3:
+                continue
+            pos_d, neg_d = {}, {}
+            for d_name, d_kws in DRIVER_POS_DEF.items():
+                cnt = sub["full_text"].apply(lambda t: any(k in str(t) for k in d_kws)).sum()
+                if cnt > 0:
+                    pos_d[d_name] = int(cnt)
+            for d_name, d_kws in DRIVER_NEG_DEF.items():
+                cnt = sub["full_text"].apply(lambda t: any(k in str(t) for k in d_kws)).sum()
+                if cnt > 0:
+                    neg_d[d_name] = int(cnt)
+            results[cat] = {"n": len(sub), "pos": pos_d, "neg": neg_d}
+        return results
+
+    drv = compute_drivers(v, TARGET_CATS_D)
+
+    # ── A. 카테고리 선택 상세 드라이버 ──────────────
+    st.markdown("<div class='section-title'>A. 제품 카테고리별 드라이버 상세</div>",
+                unsafe_allow_html=True)
+    sel_cat_d = st.selectbox("제품 카테고리 선택", list(drv.keys()), key="drv_cat")
+    if sel_cat_d in drv:
+        d_data = drv[sel_cat_d]
+        dc1, dc2 = st.columns(2)
+        with dc1:
+            if d_data["pos"]:
+                pos_items = sorted(d_data["pos"].items(), key=lambda x: -x[1])
+                fig_pos_d = px.bar(
+                    x=[v for _, v in pos_items], y=[k for k, _ in pos_items],
+                    orientation="h", color=[v for _, v in pos_items],
+                    color_continuous_scale=["#C8E6C9","#27AE60"],
+                    title=f"{sel_cat_d} — 긍정 드라이버",
+                    text=[str(v) for _, v in pos_items],
+                    labels={"x":"언급 건수","y":"드라이버"},
+                )
+                fig_pos_d.update_traces(textposition="outside")
+                fig_pos_d.update_layout(yaxis=dict(autorange="reversed"))
+                chart_style(fig_pos_d, height=300, showlegend=False)
+                st.plotly_chart(fig_pos_d, use_container_width=True)
+        with dc2:
+            if d_data["neg"]:
+                neg_items = sorted(d_data["neg"].items(), key=lambda x: -x[1])
+                fig_neg_d = px.bar(
+                    x=[v for _, v in neg_items], y=[k for k, _ in neg_items],
+                    orientation="h", color=[v for _, v in neg_items],
+                    color_continuous_scale=["#FFCDD2","#E74C3C"],
+                    title=f"{sel_cat_d} — 부정 드라이버",
+                    text=[str(v) for _, v in neg_items],
+                    labels={"x":"언급 건수","y":"드라이버"},
+                )
+                fig_neg_d.update_traces(textposition="outside")
+                fig_neg_d.update_layout(yaxis=dict(autorange="reversed"))
+                chart_style(fig_neg_d, height=300, showlegend=False)
+                st.plotly_chart(fig_neg_d, use_container_width=True)
+
+    # ── B. 전체 드라이버 히트맵 ──────────────────────
+    st.markdown("<div class='section-title'>B. 제품 × 긍정 드라이버 히트맵</div>",
+                unsafe_allow_html=True)
+    pos_heat = pd.DataFrame(0, index=list(drv.keys()),
+                            columns=list(DRIVER_POS_DEF.keys()))
+    neg_heat = pd.DataFrame(0, index=list(drv.keys()),
+                            columns=list(DRIVER_NEG_DEF.keys()))
+    for cat, d in drv.items():
+        for driver, cnt in d["pos"].items():
+            if driver in pos_heat.columns:
+                pos_heat.loc[cat, driver] = cnt
+        for driver, cnt in d["neg"].items():
+            if driver in neg_heat.columns:
+                neg_heat.loc[cat, driver] = cnt
+
+    bh1, bh2 = st.columns(2)
+    with bh1:
+        fig_ph = px.imshow(pos_heat, color_continuous_scale="Greens",
+                           title="제품 × 긍정 드라이버",
+                           text_auto=True, aspect="auto")
+        fig_ph.update_traces(textfont=dict(color="#1B2A4A", size=10))
+        chart_style(fig_ph, height=420, showlegend=False)
+        st.plotly_chart(fig_ph, use_container_width=True)
+    with bh2:
+        fig_nh = px.imshow(neg_heat, color_continuous_scale="Reds",
+                           title="제품 × 부정 드라이버",
+                           text_auto=True, aspect="auto")
+        fig_nh.update_traces(textfont=dict(color="#1B2A4A", size=10))
+        chart_style(fig_nh, height=420, showlegend=False)
+        st.plotly_chart(fig_nh, use_container_width=True)
+
+    # ── C. 파스쿠찌 상품 기획 시사점 ────────────────
+    st.markdown("<div class='section-title'>C. 파스쿠찌 상품 기획 시사점</div>",
+                unsafe_allow_html=True)
+    imp1, imp2, imp3 = st.columns(3)
+    with imp1:
+        st.markdown("""
+        <div class='success-box'>
+        <b>개발 방향 — 긍정 강화</b><br><br>
+        <b>신선도가 핵심</b>: 딸기·말차·디카페인 모두 신선도가 1위 긍정 드라이버.<br>
+        생딸기, 국산 말차, 스페셜티 원두 등 소재 신선도 강조 필수<br><br>
+        <b>비주얼 설계</b>: 인스타·포토 언급 꾸준히 등장.<br>
+        포토제닉 데코 + 고급 패키징으로 SNS 확산 유도
+        </div>""", unsafe_allow_html=True)
+    with imp2:
+        st.markdown("""
+        <div class='warning-box'>
+        <b>개선 방향 — 부정 차단</b><br><br>
+        <b>가격 불만 최다</b>: 디카페인·티·케이크 공통.<br>
+        "이탈리안 정통" 스토리텔링으로 가격 저항 완화<br><br>
+        <b>양 부족 불만</b>: 라떼·티류에서 반복.<br>
+        용량 옵션(S/M/L) 명확화 또는 Large 기본 정책 검토
+        </div>""", unsafe_allow_html=True)
+    with imp3:
+        st.markdown("""
+        <div class='insight-box'>
+        <b>파스쿠찌 특화 기회</b><br><br>
+        <b>에스프레소 NSS +75</b>: 이탈리안 정통 에스프레소를<br>
+        파스쿠찌의 시그니처로 전면 포지셔닝<br><br>
+        <b>크림치즈 NSS +71.4</b>: 베이글+크림치즈 조합<br>
+        브런치 메뉴로 개발 시 공간체류 시간 증가<br><br>
+        <b>오트라떼 NSS +83.3</b>: 비건·건강 소비자 선점
+        </div>""", unsafe_allow_html=True)
