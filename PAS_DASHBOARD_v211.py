@@ -12,7 +12,7 @@ Data-driven Marketing Strategy | Community-based Social VoC
 
 실행 방법:
   pip install streamlit plotly pandas numpy scikit-learn scipy
-  streamlit run PAS_DASHBOARD_v2.py
+  streamlit run PAS_DASHBOARD_v211.py
 """
 
 import streamlit as st
