@@ -1,0 +1,10 @@
+streamlit
+plotly
+pandas
+numpy
+scikit-learn
+scipy
+python-docx
+yfinance
+python-pptx
+openpyxl
