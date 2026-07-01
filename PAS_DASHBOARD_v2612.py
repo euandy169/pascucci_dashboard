@@ -5,6 +5,14 @@ Consumer Data-driven Marketing for PASCUCCI
 ═══════════════════════════════════════════════════════════
 버전 이력 (Version History)
 ───────────────────────────────────────────────────────────
+v2.6.13(beta) (2026-07-01)
+  [핫픽스] 프로덕션 'Oh No'(OOM) 재발 수정 — 리스트 컬럼 해싱 메모리 폭주 2차 차단
+         원인: @st.cache_data 함수 `_tag_source_quality(v)`가 언더스코어 없는 df 인자로 받아,
+         매 rerun 길목(v=_tag_source_quality(v))에서 brands/tokens 리스트 컬럼 해싱 실패 →
+         5만행 df 통째 pickle 폴백 반복 → Community Cloud 메모리 초과 → 헬스체크 붕괴.
+         (v2.6.9에서 트렌드 4함수는 _corpus로 고쳤으나 이 함수가 누락. 4,390→50,221건에서 치명화)
+         해결: `_tag_source_quality(_v, sig)` + 호출부 sig 전달(len×cols)로 해싱 스킵.
+         데드코드 compute_fnb_trends(v_adj)도 동일 패턴 위생 수정(_v_adj, sig).
 v2.6.9(beta) (2026-06-24)
   [기능] 트렌드 조기경보 '완전 통합' — 옛 상품 트렌드 엔진(compute_trend_earlywarning)을 단일 ES 엔진으로 흡수
          기준선·카테고리 필터(전체/커피·음료/푸드류/식재료)·조기경보 신호 카드(성장조짐/안정/둔화)를 통합 데이터로 구동
@@ -568,7 +576,8 @@ def build_adjacent_food_voc(uploaded_file):
 
 
 @st.cache_data(show_spinner=False)
-def compute_fnb_trends(v_adj):
+def compute_fnb_trends(_v_adj, sig=""):
+    v_adj = _v_adj  # [v2.6.13] _v_adj(언더스코어)로 받아 해싱 스킵 — 리스트 컬럼 OOM 차단
     if v_adj is None or len(v_adj) == 0:
         return pd.DataFrame(), pd.DataFrame()
     months = sorted([m for m in v_adj["year_month"].dropna().unique() if m and m != "NaT"])
@@ -2252,10 +2261,12 @@ if uploaded is None and auto_data_path is None:
 # 데이터 로딩 — 업로드 우선, 없으면 data/.data 폴더 최신 파일 [v2.4.2]
 # ══════════════════════════════════════════════════════
 @st.cache_data(show_spinner=False)
-def _tag_source_quality(v):
+def _tag_source_quality(_v, sig=""):
     """소스(블로그/커뮤니티)+콘텐츠 유형 태깅. [v2.6.11]
     enriched 품질 컬럼(content_type/is_garbage_voc/is_sponsored/is_press_release)이 있으면 실측 사용,
-    없으면 휴리스틱 폴백. _voc_ok=진성 VoC 플래그(브랜드 지표는 이 기준으로 거르는 것을 권장)."""
+    없으면 휴리스틱 폴백. _voc_ok=진성 VoC 플래그(브랜드 지표는 이 기준으로 거르는 것을 권장).
+    [v2.6.13] _v(언더스코어)로 받아 cache_data 해싱 스킵 — brands/tokens 리스트 컬럼 OOM 차단. sig로 무효화 제어."""
+    v = _v  # [v2.6.13] 이하 본문은 v 참조 유지 (무손실 별칭)
     import re as _re
     import pandas as _pd
     v = v.copy()
@@ -2324,7 +2335,7 @@ except Exception as _e:
 if uploaded is None and auto_data_path is not None:
     st.sidebar.caption(f"🔗 자동 로딩: {os.path.basename(auto_data_path)}")
 
-v = _tag_source_quality(v)
+v = _tag_source_quality(v, sig=f"{len(v)}x{v.shape[1]}")  # [v2.6.13] sig로 캐시 무효화 제어
 
 with st.sidebar:
     st.markdown("**🔧 필터**")
