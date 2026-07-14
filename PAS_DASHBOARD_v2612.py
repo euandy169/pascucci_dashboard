@@ -429,9 +429,11 @@ def chart_style(fig, height=420, showlegend=True):
 @st.cache_data(show_spinner="데이터 전처리 중...")
 def load_and_preprocess(uploaded_file):
     _name = getattr(uploaded_file, "name", str(uploaded_file))  # [v2.4.1] 경로 문자열 허용
-    if _name.endswith((".csv", ".csv.gz", ".gz")):
+    if _name.endswith(".parquet"):                               # [v2.7] Parquet 지원
+        df = pd.read_parquet(uploaded_file)
+    elif _name.endswith((".csv", ".csv.gz", ".gz", ".xz", ".csv.xz")):
         df = pd.read_csv(uploaded_file, encoding="utf-8-sig",
-                         compression=("gzip" if _name.endswith(".gz") else "infer"))
+                         compression="infer")                    # [v2.7] gz/xz 자동 인식
     else:
         df = pd.read_excel(uploaded_file)
 
