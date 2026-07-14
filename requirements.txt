@@ -9,3 +9,4 @@ yfinance
 python-pptx
 openpyxl
 matplotlib
+pyarrow
